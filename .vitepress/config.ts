@@ -15,6 +15,7 @@ export default defineConfig({
         items: [
           { text: "Layout", link: "/layout" },
           { text: "Domain", link: "/domain" },
+          { text: "Semantic thread", link: "/semantic-thread" },
           { text: "Storage mapping", link: "/storage-mapping" },
         ],
       },

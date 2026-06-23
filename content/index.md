@@ -10,6 +10,7 @@
 | -------- | ---- |
 | [layout](./layout.md) | Monorepo, слои, clients/tools, imports |
 | [domain](./domain.md) | MessageRef, SemanticThread, glossary, ports |
+| [semantic-thread](./semantic-thread.md) | SemanticThread: Selector → Heuristic → Builder |
 | [storage-mapping](./storage-mapping.md) | MessageRef ↔ Postgres |
 
 ## Turn & transport
