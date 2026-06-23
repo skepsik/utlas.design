@@ -1,112 +1,121 @@
 # Turn prompt
 
-**Design hub для turn prompt** — не только «модульные блоки в PG», а весь контур: **что** модель видит (envelope + voice), **как** собирается `LlmPrompt`, **куда** расширять.
+Сборка `LlmPrompt` для turn: **composer** в `llm/prompt/` — единственная точка assembly. Текст policy — в PG `prompt_blocks`; порядок секций и envelope — resolver chains в git.
 
-**Work shipped:** prompt composer v0 — feat-24 (ветка `feat-24`, work [#24](https://github.com/skepsik/utlas-ts/issues/24) closed).
-
----
-
-## Контент (prod reference)
-
-Python `ai-bot/prompts/` — reference до cutover. TS seed: `prompts/system_prompt_{private,group}.txt`.
-
-### Роли блоков user envelope
-
-| Блок | Domain | Смысл для модели |
-|------|--------|------------------|
-| **CHAT HISTORY** | `RecentMessages` | Хронологический хвост перед anchor; фон, не центр turn |
-| **SEMANTIC THREAD** | `SemanticThread` | Семантическая нить вокруг anchor — **приоритетный** контекст vs history |
-| **USER MESSAGE** | anchor + `queryText` | Центр текущего turn |
-
-**Порядок в user:** `CHAT HISTORY` → `SEMANTIC THREAD` → `USER MESSAGE` (зафиксировано в коде и тестах).
-
-### System voice (Zera)
-
-- **Private:** «Zera в личном чате» — turn = последнее обращение; history для контекста.
-- **Group:** «участник группового чата» — явный сигнал (@, reply, /ask); чужие реплики могут быть в history; burst одной мысли.
-- Общие секции §1–§6: constraints, style, length, frame handling, content strategy, prohibitions.
-- **Meta-visibility:** group overclaim — [#20](https://github.com/skepsik/utlas-ts/issues/20) (backlog content).
-
-### Форматирование сообщений
-
-- `[quote]` / `[end quote]` — partial quote + комментарий автора.
-- `[forward from: …]` — реpost; дата origin, не пересылки.
-- Timestamps UTC `YYYY-MM-DD HH:mm:ss`, sender `@handle`.
+Domain slots — [domain](../domain.md) § Context assembly.
 
 ---
 
-## Архитектура assembly (as implemented)
-
-### PG
+## Composer
 
 ```text
-prompt_blocks (id serial PK, name text UNIQUE, text text NOT NULL)
+createPromptComposer({ deps, systemResolvers?, userResolvers? })
+compose(ComposeInput) → { system, user }
 ```
 
-- Seed: monolithic `system_prompt_*.txt` → rows **as-is** (без рерайта).
-- Редактирование текста — в БД; **новая секция** = resolver + место в массиве (git), не manifest в PG.
+`ComposeInput`: `anchor`, `arity` (`private` | `group`), `queryText`, `transport`.
 
-### Composer (`llm/prompt/`)
+Wiring: `TurnServices.promptComposer` → `runTurn` вызывает `compose()` перед LLM.
+
+### Один pass
+
+1. `PromptShared` — pass-scoped memo (`once()` для `getRecent`, `getThread`, `getSettings`; `loadBlock` — Map per key).
+2. `PromptContext` — `anchor`, `arity`, `queryText`, `transport`, `shared`.
+3. `buildSection(systemResolvers)` и `buildSection(userResolvers)` параллельно.
+4. Секции склеиваются через `\n\n`.
+
+---
+
+## System resolvers (`defaultSystemResolvers`)
+
+Порядок фиксирован в `composer.ts`. Блоки — `prompt_blocks.key` через `loadBlock`, кроме conditional resolvers.
+
+| # | Resolver | Источник |
+|---|----------|----------|
+| 1 | `identity` | PG: `identity.private` \| `identity.group` |
+| 2 | `turn_handling` | PG |
+| 3 | `response_format` | PG — JSON answer schema hint |
+| 4 | `addressing.telegram_group` | PG; **omit** unless `arity=group` && `transport=telegram` |
+| 5 | `burst` | PG: `burst.private` \| `burst.group` |
+| 6 | `constraints_context` | PG |
+| 7 | `communication_style` | PG |
+| 8 | `response_length_structure` | PG |
+| 9 | `followup_appendix` | PG `followup_appendix`; **omit** unless heuristic `isFollowupAppendixTurn` |
+| 10 | `frame_handling` | PG |
+| 11 | `content_strategy` | PG |
+| 12 | `strict_prohibitions` | PG |
+
+Новая system-секция: row в `prompt_blocks` + resolver в массиве (место в git).
+
+---
+
+## User resolvers (`defaultUserResolvers`)
+
+| # | Блок | Resolver | Данные |
+|---|------|----------|--------|
+| 1 | **CHAT HISTORY** | `chatHistoryResolver` | `selectRecentBefore` → `formatThread` |
+| 2 | **SEMANTIC THREAD** | `semanticThreadResolver` | `buildSemanticThread` → `formatThread` |
+| 3 | **USER MESSAGE** | `userMessageResolver` | anchor + `queryText`, optional reply parent |
+
+Порядок зафиксирован в коде и тестах (`prompt-composer.test.ts`).
+
+---
+
+## PG `prompt_blocks`
 
 ```text
-createPromptComposer(deps)   // main.ts
-compose(input)               // один pass на LLM-вызов
-  → pass-scoped PromptShared (once / Map для loadBlock)
-  → build(systemResolvers, ctx) + build(userResolvers, ctx)
-  → { system, user }
+prompt_blocks (key UNIQUE, text, is_enabled)
 ```
 
-- Resolvers = legacy envelope + system block из PG
-- `TurnServices.promptComposer`; `runTurn` → `compose()`
-- Parity: `test/prompt-composer.test.ts`
-
-### PromptShared (pass-scoped)
-
-- `getRecent` / `getSettings` / `getThread` — `once()`; **один** `getSettings` переиспользуется в `getRecent`.
-- `loadBlock(name)` — `Map<name, Promise<string>>` per pass.
-- **Расширение:** новый derived input → новый getter с `once()` на `PromptShared` (один владелец на ключ).
-
-### Resolvers
-
-- Plain `(ctx) => string | null`; массивы `systemResolvers` / `userResolvers`.
-- Deps — только `await ctx.shared.getX()`.
-- Errors: default — log + omit section; `PromptComposeFatalError` → rethrow (`compose` abort). System block + policy — fatal; user envelope — best-effort omit.
+- `loadPromptBlock(pg, key)` — missing key → throw; `is_enabled=false` → `null` (секция omit).
+- Редактирование **текста** — в БД; **порядок и conditional logic** — resolvers в git.
+- Manifest / user-editable order в PG — **не** делаем.
 
 ---
 
-## Отклонено: contributors / signals / merge
+## Форматирование (`format.ts`)
 
-В первой итерации feat-24 был слой `Contributor → Partial<signals> → mergeSignalPatches → ctx.signals`. **Убран** — overengineering под несуществующий кейс.
+Сообщения в envelope:
 
-**Почему:**
-
-- Дедуп fetch — уже `once()` / `loadBlock` Map на `PromptShared`.
-- Несколько независимых derived keys — **точечные `once()` getters** на `PromptShared`, без patch-merge.
-- Footgun: `{ key: undefined }` + `if (value === undefined) continue` тихо ломает collision throw; `Object.keys` vs omit — скользкая семантика.
-- Enrichment уже eager и отдельно в `turn/`; dynamic plugin registry — отдельная история, не signals.
-
-**Если понадобится dynamic registry writer'ов** (как `EnrichmentRegistry`) — проектировать заново под конкретный кейс, не восстанавливать merge-as-is.
+- Обёртка: `=== NAME ===` … `=== END NAME ===`
+- Строка: `[UTC time] Sender (@handle):` или `(bot)`
+- Reply: `↩ reply to [time] author:`
+- Quote: `[quote]` … `[end quote]`
+- Forward: `[forward from: label, originAt]`
+- User message body — `queryText` (burst / override), не сырой `anchor.body` если задан override
 
 ---
 
-## Later (не в v0)
+## Ошибки resolvers
 
-| Тема | Сейчас | Later |
-|------|--------|-------|
-| **Derived inputs** | getters на `PromptShared` | новый `once()` getter |
-| **Manifest / order in PG** | resolver arrays in git | user-editable order — out |
-| **TurnHints, inference, regen** | — | [turn-pipeline](./turn-pipeline.md) |
-| **Retrieval envelope/budget** | stub `retrieval/envelope.ts` | trim/rank blocks |
-| **Shared context bus** | — | [context-bus](./context-bus.md) |
-| **Enrichment → prompt** | fragments не в compose | [turn-pipeline](./turn-pipeline.md) |
-| **Tools / model capabilities** | composer без model; transport via anchor | planner + `TurnCapabilities` — [turn-pipeline](./turn-pipeline.md) § Later |
+`buildSection`:
+
+- `PromptComposeFatalError` → abort всего `compose` (missing PG block, unsupported arity).
+- Любая другая ошибка → log + **omit** секции (user envelope best-effort).
 
 ---
 
-## Open
+## Расширение
 
-- [ ] Content: group overclaim guard ([#20](https://github.com/skepsik/utlas-ts/issues/20))
-- [ ] Semantic thread selectors beyond `replyChain` ([domain](./domain.md) § Open)
-- [ ] Deprecate file `prompt-loader` после стабилизации PG seed в prod
-- [x] Resolver error policy v0 — `PromptComposeFatalError` in `buildSection`
-- [ ] Enrichment fragments в prompt path ([turn-pipeline](./turn-pipeline.md))
+| Нужно | Как |
+|-------|-----|
+| Новый derived input | `once()` getter на `PromptShared` |
+| Новый PG block | migration/seed + `createTextBlockResolver` или custom resolver |
+| Conditional block | resolver возвращает `null` → omit |
+| Tools list в system | [tools](../tools/index.md) — `availableToolsResolver` (planned #38) |
+
+---
+
+## Rejected: contributors / signals / merge
+
+Feat-24 пробовал `Contributor → mergeSignalPatches`. **Убрано** — дедуп уже в `once()` / `loadBlock` Map; patch-merge — footgun. Dynamic writers — отдельный дизайн под конкретный registry, не восстанавливать merge-as-is.
+
+---
+
+## Later
+
+- Group meta-visibility content — [#20](https://github.com/skepsik/utlas-ts/issues/20)
+- Enrichment fragments в compose — [turn-pipeline](../turn-pipeline.md)
+- `TurnCapabilities` / tools-aware compose — [turn-pipeline](../turn-pipeline.md) § Later
+- Shared context для multi-bot — [notes/context-bus](../notes/context-bus.md) (spike)
+- Retrieval trim/rank — stub `retrieval/`

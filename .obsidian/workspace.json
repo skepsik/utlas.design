@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "content/envelope/compose-blocks.md",
+                "file": "content/turn-prompt.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "compose-blocks"
+              "title": "turn-prompt"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "content/envelope/compose-blocks.md",
+                "file": "content/turn-prompt.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Обратные ссылки для compose-blocks"
+              "title": "Обратные ссылки для turn-prompt"
             }
           },
           {
@@ -169,8 +169,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -185,29 +184,33 @@
   },
   "active": "6f8477e0711492cb",
   "lastOpenFiles": [
-    "content/tools/message-search.md",
-    "content/tools/geocode.md",
-    "content/tools/index.md",
-    "content/tools",
-    "content/envelope/index.md",
-    "content/envelope/compose-blocks.md",
-    "content/envelope/journal.md",
-    "content/context-bus.md",
-    "content/envelope",
-    "content/message-search.md",
-    "content/llm-envelope.md",
-    "content/turn-prompt.md",
+    "README.md",
     "content/llm-execution-policy.md",
     "content/layout.md",
     "content/domain.md",
-    "content/index.md",
+    "content/envelope/index.md",
+    "content/notes/index.md",
+    "content/notes/context-bus.md",
+    "content/notes/registries.md",
+    "content/turn-prompt.md",
     "content/turn-pipeline.md",
+    "content/notes",
+    "content/envelope/compose-blocks.md",
+    "content/context-bus.md",
+    "content/registries.md",
+    "content/index.md",
+    "content/parity-roadmap.md",
+    "content/tools/message-search.md",
+    "content/tools/geocode.md",
+    "content/tools/index.md",
+    "content/envelope/journal.md",
+    "content/tools",
+    "content/envelope",
+    "content/message-search.md",
+    "content/llm-envelope.md",
     "content/transport.md",
     "content/tenancy.md",
     "content/storage-mapping.md",
-    "content/registries.md",
-    "content/parity-roadmap.md",
-    "content/journal.md",
-    "README.md"
+    "content/journal.md"
   ]
 }

@@ -11,7 +11,6 @@
 | [layout](./layout.md) | Monorepo, слои, clients/tools, imports |
 | [domain](./domain.md) | MessageRef, SemanticThread, glossary, ports |
 | [storage-mapping](./storage-mapping.md) | MessageRef ↔ Postgres |
-| [parity-roadmap](./parity-roadmap.md) | Parity checklist (живой) |
 
 ## Turn & transport
 
@@ -19,7 +18,7 @@
 | -------- | ---- |
 | [turn-pipeline](./turn-pipeline.md) | Turn start/stop, pipeline, should_reply |
 | [transport](./transport.md) | Ingress, qualifying, egress |
-| [turn-prompt](./turn-prompt.md) | Prompt composer, voice, envelope slots |
+| [turn-prompt](./turn-prompt.md) | Prompt composer, PG blocks, envelope |
 | [llm-execution-policy](./llm-execution-policy.md) | Per-step retry vs strategy |
 
 ## LLM answer envelope
@@ -38,13 +37,15 @@
 | [geocode](./tools/geocode.md) | Geocoder contract, map pin |
 | [message-search](./tools/message-search.md) | `search_messages` |
 
-## Later
+## Structure (later)
 
 | Страница | Тема |
 | -------- | ---- |
 | [tenancy](./tenancy.md) | Multi-bot, owner, RLS, secrets |
-| [context-bus](./context-bus.md) | Shared context в обход bot→bot |
-| [registries](./registries.md) | Политика registry |
+
+## Notes
+
+Заметки на потом — [notes/](./notes/index.md).
 
 Timezone ([#48](https://github.com/skepsik/utlas-ts/issues/48)) — work issue до sign-off.
 
