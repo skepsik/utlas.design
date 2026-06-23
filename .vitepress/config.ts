@@ -7,6 +7,7 @@ export default defineConfig({
   base: "/utlas/wiki/",
   srcDir: "content",
   cleanUrls: true,
+  head: [["meta", { name: "robots", content: "noindex, nofollow, noarchive" }]],
   themeConfig: {
     nav: [{ text: "Home", link: "/" }],
     sidebar: [
