@@ -1,6 +1,6 @@
 # Turn prompt
 
-Сборка `LlmPrompt` для turn: **composer** в `llm/prompt/` — единственная точка assembly. Текст policy — в PG `prompt_blocks`; порядок секций и envelope — resolver chains в git.
+Сборка `LlmPrompt` для turn: **composer** в `@utlas/core/llm/prompt/`; default resolver chains — `apps/runtime/src/llm/`. Текст policy — в PG `prompt_blocks`; порядок секций — resolvers в git.
 
 Domain slots — [domain](./domain.md) § Context assembly.
 

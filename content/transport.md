@@ -53,7 +53,7 @@ transport/
     index.ts              re-exports
 ```
 
-**Вне transport/** (agnostic): `domain/`, `storage/`, `turn/`, `enrichment/`, `llm/`, `clients/`, `orchestrator/`, `main.ts`.
+**Вне transport/** (agnostic): `@utlas/core` (`domain/`, `storage/`, `llm/`), `apps/runtime` (`turn/`, `enrichment/`, `clients/`, `orchestrator/`, `main.ts`).
 
 ---
 

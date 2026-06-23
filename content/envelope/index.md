@@ -95,7 +95,7 @@ type LlmAnswer = {
 
 ## Parse и validator
 
-Источник правды в коде — **zod** (`apps/runtime/src/llm/answer.ts`, `parse-answer.ts`).
+Источник правды в коде — **zod** (`packages/core/src/llm/answer.ts`, `parse-answer.ts`).
 
 - `.strict()` на корне; каждое новое optional-поле — отдельный work-issue + apply handler.
 - **Parse fail / invalid schema** → fallback `shouldReply: true`, `text` = trimmed raw + log ([turn-pipeline](../turn-pipeline.md)).

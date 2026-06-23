@@ -12,7 +12,7 @@
 
 | Термин              | Где в коде                               | Смысл                                                                                                                                                                                             |
 | ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MessageRef**      | `domain/model/message-ref`               | Одна реплика после ingress; атом хранения и envelope                                                                                                                                              |
+| **MessageRef**      | `@utlas/core/domain/model/message-ref`   | Одна реплика после ingress; атом хранения и envelope                                                                                                                                              |
 | **Anchor**          | `TurnRequest.anchor`                     | `MessageRef`, открывающий turn; центр **USER MESSAGE**                                                                                                                                            |
 | **Conversation**    | `conversationId` + transport (composite) | Поток human↔assistant в одном messenger. v0: `conversationId` = TG `chat_id`; полная identity — `(transport, conversationId)` ([#30](https://github.com/skepsik/utlas-ts/issues/30))              |
 | **Transport tag**   | `TurnRequest.transport`, `SelectContext.transport`, persist boundary | Канал доставки (`"telegram"`). **Не поле `MessageRef`** — свойство conversation / turn scope. PG: колонка `messages.transport` при persist. Prompt: `ctx.transport` ([#33](https://github.com/skepsik/utlas-ts/issues/33) ✅) |
@@ -35,14 +35,15 @@ Product voice — participant с `isBot` + binding; **role** (`our_voice`) — l
 ## Domain layer
 
 ```
-domain/
-  model/       MessageRef, ParticipantRef, MessageForward, AttributionRef,
-               SemanticThread, RecentMessages
-  services/    buildSemanticThread, selectRecentBefore
-  ports.ts     MessageReadPort, MessageSelector, SelectContext
+packages/core/src/
+  domain/
+    model/       MessageRef, ParticipantRef, MessageForward, AttributionRef,
+                 SemanticThread, RecentMessages
+    services/    buildSemanticThread, selectRecentBefore
+    ports.ts     MessageReadPort, MessageSelector, SelectContext
 ```
 
-**Правило:** `domain/` без SDK, ORM, grammY.
+**Правило:** `domain/` без SDK, ORM, grammY. Каталог — `@utlas/core`; см. [layout](./layout.md) § Monorepo.
 
 ### MessageRef
 
@@ -85,7 +86,7 @@ MessageForward { from: AttributionRef; originAt?: Date }
 AttributionRef { label: string; key?: string }
 ```
 
-Ingress (TG): `parseForward` → persist → prompt `[forward from: …]` в `llm/prompt.ts`.
+Ingress (TG): `parseForward` → persist → prompt `[forward from: …]` в `@utlas/core/llm/prompt/format.ts`.
 
 ### Context assembly → envelope
 
