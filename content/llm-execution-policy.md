@@ -76,7 +76,7 @@ Router: `createStepAdapter(step)` — retry из **step.policy**, не global co
 
 ## Work breakdown (implement)
 
-1. Design sign-off
+1. Canonical design (this page)
 2. Migration + seed `standard_retry` (= current constants)
 3. FK `policy_id` on steps; backfill → `standard_retry`
 4. DTO + read port; router reads per-step policy

@@ -4,7 +4,7 @@
 
 Домен ([domain](./domain.md)) agnostic: `MessageRef`, turn. Transport нормализует сырой event → `MessageRef` и обратно.
 
-**Статус:** v0 Telegram — **сверено с кодом** (2026-06).
+**Сейчас:** Telegram v0 — [parity checklist](#parity-checklist-ts) ниже.
 
 ---
 
@@ -145,7 +145,7 @@ grammY update
 - private без reply на trigger → без `reply_parameters`
 - иначе → reply на `anchor.id`
 
-### Message lifecycle: edit / delete (2026-06, decided)
+### Message lifecycle: edit / delete
 
 Transport отвечает только за **синхронизацию PG с тем, что мессенджer сообщил**. Turn/LLM — отдельно.
 

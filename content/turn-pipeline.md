@@ -2,9 +2,7 @@
 
 **Turn / pipeline** — скобка конкурентности (`turn.start` / `turn.stop`), сценарий шагов orchestrator'а и default path user→bot. Transport ([transport](./transport.md)) вызывает `runTurn`; domain ([domain](./domain.md)) agnostic.
 
-**v0 в коде** — monolith `runTurn` + supersede до send. Ниже — **north star**; implementation — отдельные work issues.
-
-Источник обсуждения: `turn-pipeline-discussion.md` (transcript 2026-06).
+**v0 в коде** — monolith `runTurn` + supersede до send. Ниже — **цель**; implementation — work issues.
 
 ---
 

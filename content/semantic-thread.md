@@ -1,8 +1,10 @@
 # SemanticThread
 
-Целевая модель сборки семантической ветки. Краткий hub — [domain](./domain.md) § SemanticThread; v0 в коде — selector `replyChain` only.
+Hub — [domain](./domain.md) § SemanticThread.
 
-**Статус:** проектируется (Builder / heuristics / LLM-фильтр — не реализованы).
+**Сейчас:** v0 — selector `replyChain` only.
+
+**Цель:** сборка через Selector → Heuristic → Builder (ниже).
 
 ---
 
@@ -96,8 +98,6 @@ SemanticThread          ← готовая собранная ветка
 ## LLM-фильтрация (опционально)
 
 После всех прогонов возможен отдельный LLM-инференс для финальной фильтрации кандидатов. `claim/score` от эвристик передаются как подсказки. Builder отдаёт готовую ветку.
-
-**Статус:** проектируется, не реализовано.
 
 ---
 

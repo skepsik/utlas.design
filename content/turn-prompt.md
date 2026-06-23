@@ -108,7 +108,7 @@ prompt_blocks (key UNIQUE, text, is_enabled)
 
 ## Rejected: contributors / signals / merge
 
-Feat-24 пробовал `Contributor → mergeSignalPatches`. **Убрано** — дедуп уже в `once()` / `loadBlock` Map; patch-merge — footgun. Dynamic writers — отдельный дизайн под конкретный registry, не восстанавливать merge-as-is.
+`Contributor → mergeSignalPatches` — **не делаем**: дедуп уже в `once()` / `loadBlock` Map; patch-merge — footgun. Dynamic writers — отдельный дизайн под конкретный registry.
 
 ---
 

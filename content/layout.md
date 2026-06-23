@@ -1,8 +1,6 @@
 # Layout
 
-**Статус:** sign-off 2026-06 — monorepo `packages/core` + `apps/runtime`; taxonomy **clients/tools**, layout сверен с кодом ([#53](https://github.com/skepsik/utlas-ts/issues/53) ✅).
-
-Агентский gate (imports, boundaries): `.cursor/rules/ts-layout.mdc`.
+Monorepo split — [#53](https://github.com/skepsik/utlas-ts/issues/53). Агентский gate (imports, boundaries): `.cursor/rules/ts-layout.mdc`.
 
 ---
 
@@ -59,8 +57,6 @@ utlas-ts/
       main.ts             composition root
     test/
 ```
-
-**Убрано:** корневые `clients/`, `infra/` (→ `tools/sync/`, `tools/runners/git/`).
 
 | Слой | Смысл |
 |------|--------|
