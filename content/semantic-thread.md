@@ -119,5 +119,5 @@ SemanticThread          ← готовая собранная ветка
 | 1 | Алгоритмика рекурсивных проходов Builder'а |
 | 2 | Сложение score двух эвристик: сумма или `max(a, b)`? |
 | 3 | Поведение при превышении context window |
-| 4 | Supersede: объединение треда прерванной и новой итерации (связано с [#38](https://github.com/skepsik/utlas-ts/issues/38)) |
+| 4 | Supersede: объединение SemanticThread прерванной и новой итерации turn — [turn-pipeline](./turn-pipeline.md) |
 | 5 | TTL по эвристикам, отличным от reply-chain (пока не проектировался) |
