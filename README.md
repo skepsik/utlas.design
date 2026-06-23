@@ -52,6 +52,8 @@ Push в `master` → GitHub Actions (`.github/workflows/deploy-wiki.yml`) соб
 bash scripts/setup-vps-wiki-nginx.sh
 ```
 
-URL: `http://<VPS_IP>/utlas/wiki/`
+URL (только WireGuard, hub VPS): `http://10.243.63.1/utlas/wiki/`
+
+С публичного IP wiki **не слушает** — nginx bind на `10.243.63.1:80` (+ `127.0.0.1` для локальных проверок).
 
 Миграция с GitHub design issues — 2026-06 (контент в `content/`).

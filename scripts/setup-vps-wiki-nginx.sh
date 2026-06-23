@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# One-time VPS setup: nginx on :80 for /utlas/wiki/ only. Does not touch bot, wg, xray.
+# One-time VPS setup: nginx wiki on wg hub only (10.243.63.1:80). Does not touch bot, wg, xray.
 set -euo pipefail
 
 WIKI_ROOT="${WIKI_ROOT:-$HOME/utlas-wiki/www}"
+WG_HUB_IP="${WG_HUB_IP:-10.243.63.1}"
 NGINX_SITE="/etc/nginx/sites-available/utlas-wiki"
 NGINX_BOT_MAP="/etc/nginx/conf.d/utlas-bot-block-map.conf"
 
 echo "Wiki root: $WIKI_ROOT"
+echo "Listen: ${WG_HUB_IP}:80 (WireGuard only)"
 mkdir -p "$WIKI_ROOT"
 chmod -R a+rX "$(dirname "$WIKI_ROOT")" "$WIKI_ROOT" 2>/dev/null || true
 
@@ -16,7 +18,7 @@ if ! command -v nginx >/dev/null 2>&1; then
 fi
 
 sudo tee "$NGINX_BOT_MAP" >/dev/null <<'EOF'
-# Block crawlers/scanners on utlas wiki (http context map).
+# Optional extra guard if wiki is ever exposed on public :80 again.
 map $http_user_agent $utlas_block_bot {
     default 0;
     "" 1;
@@ -56,8 +58,8 @@ EOF
 
 sudo tee "$NGINX_SITE" >/dev/null <<EOF
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
+    listen ${WG_HUB_IP}:80;
+    listen 127.0.0.1:80;
 
     if (\$utlas_block_bot) {
         return 403;
@@ -95,4 +97,4 @@ sudo nginx -t
 sudo systemctl enable nginx
 sudo systemctl reload nginx
 
-echo "OK: http://\$(curl -s -4 ifconfig.me 2>/dev/null || hostname -I | awk '{print \$1}')/utlas/wiki/"
+echo "OK (WireGuard): http://${WG_HUB_IP}/utlas/wiki/"
