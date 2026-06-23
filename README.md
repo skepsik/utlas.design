@@ -22,4 +22,6 @@ git commit -m "…"
 git push
 ```
 
-Веб-морда (VitePress + Vercel) — позже; пока источник истины — эти файлы.
+Веб-морда (VitePress + Vercel) — позже; источник истины — `content/*.md`.
+
+Миграция с GitHub design issues — 2026-06 (контент в `content/`).

@@ -1,6 +1,8 @@
 # Utlas design
 
-Единый канон design. Разборы — в чате; решения вносятся сюда.
+Единый канон design. Разборы — в чате; решения вносятся в `content/`.
+
+**Репозиторий:** [skepsik/utlas-design](https://github.com/skepsik/utlas-design) · локально `utlas-ts/design/`
 
 ## Core
 
@@ -26,8 +28,12 @@
 | [journal](./journal.md) | Scratchpad / per-chat memory |
 | [llm-execution-policy](./llm-execution-policy.md) | Per-step retry vs strategy |
 
+## Work-only (не design pages)
+
+Timezone ([#48](https://github.com/skepsik/utlas-ts/issues/48)), LLM tools ([#38](https://github.com/skepsik/utlas-ts/issues/38)) — в work issues до sign-off.
+
 ## Процесс
 
 - Work-очередь — issues в [utlas-ts](https://github.com/skepsik/utlas-ts) + доска Utlas Roadmap.
-- Design issues **не** ведём; канон только здесь.
+- Канон design — **только** этот репозиторий; design issues не ведём.
 - Отклонённые гипотезы — секция **Rejected** в конце страницы.

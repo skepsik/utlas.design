@@ -1,3 +1,29 @@
 # Storage mapping
 
-> TODO: migrate from [utlas-ts#1](https://github.com/skepsik/utlas-ts/issues/1) § MessageRef ↔ storage.
+MessageRef ↔ Postgres. Domain types — [domain](./domain.md).
+
+---
+
+## MessageRef ↔ `messages`
+
+| Поле `MessageRef` | PG `messages` | Примечание |
+|-------------------|-----------------|------------|
+| `conversationId` | `conversation_id` | |
+| `id` | `message_id` | |
+| `transport` | `transport` | |
+| `sender.key` | `user_id` | prefix `tg:` только в domain |
+| `sender.label` | `display_name` | |
+| `sender.handle` | `username` | |
+| `sender.isBot` | `is_bot` | |
+| `anchorRef` | `reply_to_message_id` | transport signal |
+| `quotedExcerpt` | `quoted_text` | `quote_position` — transport-only |
+| `body` | `text` | |
+| `sentAt` | `sent_at` | UTC `YYYY-MM-DD HH:mm:ss` |
+| `forward.from.label` | `forward_from` | |
+| `forward.originAt` | `forward_origin_at` | |
+
+Conversation settings / watermark: `conversations` per `(transport, conversation_id)` — [tenancy](./tenancy.md) (`bot_chats` later).
+
+Storage key: `(transport, conversation_id, message_id)`.
+
+Impl read port: `PostgresContextRead` (work [#26](https://github.com/skepsik/utlas-ts/issues/26) closed).
