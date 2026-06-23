@@ -12,7 +12,7 @@
 LLM answer { toolCalls? }
   → execute tools sequentially (cap итераций)
   → tool results → next LLM call (loop) или final answer
-  → declarative patches (journal, blockTtl, …) — после loop
+  → declarative patches (scratchpad, blockTtl, …) — после loop
   → egress если shouldReply
 ```
 

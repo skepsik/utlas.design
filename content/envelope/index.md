@@ -23,7 +23,7 @@
 | Фаза | Поля | Семантика |
 |------|------|-----------|
 | **Execute** (tool loop) | `toolCalls?` | imperative: backend **выполняет** runners — [tools](../tools/index.md) |
-| **Declare** (после loop, до egress) | `journal?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
+| **Declare** (после loop, до egress) | `scratchpad?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
 
 Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Группировку можно добавить позже.
 
@@ -39,11 +39,18 @@ type LlmAnswer = {
   conversationSettings?: {
     timezone?: string;    // IANA; validate server-side — [#48](https://github.com/skepsik/utlas-ts/issues/48)
   };
-  journal?: unknown;      // full replace; omit = unchanged — [journal](./journal.md)
+  scratchpad?: Scratchpad; // full replace; omit = unchanged — [scratchpad](./scratchpad.md)
   blockTtl?: {             // TTL patch compose-blocks; omit = unchanged
     blockId: string;
     ttlTurns: number;     // 0 = revoke
   }[];
+};
+
+type Scratchpad = {
+  decisions: string[];
+  constraints: string[];
+  unresolved_questions: string[];
+  user_preferences: string[];
 };
 ```
 
@@ -99,7 +106,7 @@ type LlmAnswer = {
 
 - `.strict()` на корне; каждое новое optional-поле — отдельный work-issue + apply handler.
 - **Parse fail / invalid schema** → fallback `shouldReply: true`, `text` = trimmed raw + log ([turn-pipeline](../turn-pipeline.md)).
-- Declarative patches — **best-effort**: битый `journal` ≠ не слать `text`.
+- Declarative patches — **best-effort**: битый `scratchpad` ≠ не слать `text`.
 
 Wire schema для adapters: `zod-to-json-schema` (`answer-json-schema.ts`).
 
@@ -109,7 +116,7 @@ Wire schema для adapters: `zod-to-json-schema` (`answer-json-schema.ts`).
 
 ```text
 1. tool loop по toolCalls (cap итераций) — [tools](../tools/index.md)
-2. declarative patches (atomic): conversationSettings → journal → blockTtl
+2. declarative patches (atomic): conversationSettings → scratchpad → blockTtl
 3. TTL tick всех active compose_blocks (один раз на завершённый user-turn)
 4. egress если shouldReply
 ```
@@ -127,7 +134,7 @@ PG block `response_format` — формат JSON + optional-поля по мер
 | Поле | Страница |
 |------|----------|
 | `toolCalls` | [tools](../tools/index.md) · [geocode](../tools/geocode.md) · [message-search](../tools/message-search.md) |
-| `journal` | [journal](./journal.md) |
+| `scratchpad` | [scratchpad](./scratchpad.md) |
 | `blockTtl` / compose blocks | [compose-blocks](./compose-blocks.md) |
 | `conversationSettings.timezone` | [#48](https://github.com/skepsik/utlas-ts/issues/48) (work) |
 
@@ -136,7 +143,7 @@ PG block `response_format` — формат JSON + optional-поля по мер
 ## Цель
 
 - [ ] `toolCalls` + tool loop — [#38](https://github.com/skepsik/utlas-ts/issues/38)
-- [ ] `journal` — [journal](./journal.md)
+- [ ] `scratchpad` — [scratchpad](./scratchpad.md)
 - [ ] `blockTtl` + `compose_blocks` — [compose-blocks](./compose-blocks.md)
 - [ ] `conversationSettings.timezone` — [#48](https://github.com/skepsik/utlas-ts/issues/48)
 
