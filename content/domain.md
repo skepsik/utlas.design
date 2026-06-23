@@ -15,7 +15,7 @@
 | **MessageRef**      | `domain/model/message-ref`               | Одна реплика после ingress; атом хранения и envelope                                                                                                                                              |
 | **Anchor**          | `TurnRequest.anchor`                     | `MessageRef`, открывающий turn; центр **USER MESSAGE**                                                                                                                                            |
 | **Conversation**    | `conversationId` + transport (composite) | Поток human↔assistant в одном messenger. v0: `conversationId` = TG `chat_id`; полная identity — `(transport, conversationId)` ([#30](https://github.com/skepsik/utlas-ts/issues/30))              |
-| **Transport tag**   | opaque string; v0 also on `MessageRef`   | Канал доставки (`"telegram"`). **Conceptually — свойство conversation**, не utterance. Интерпретация — только transport / prompt resolvers ([#29](https://github.com/skepsik/utlas-ts/issues/29)) |
+| **Transport tag**   | `TurnRequest.transport`, `SelectContext.transport`, persist boundary | Канал доставки (`"telegram"`). **Не поле `MessageRef`** — свойство conversation / turn scope. PG: колонка `messages.transport` при persist. Prompt: `ctx.transport` ([#33](https://github.com/skepsik/utlas-ts/issues/33) ✅) |
 | **Participant**     | `ParticipantRef`                         | Автор реплики                                                                                                                                                                                     |
 | **Semantic thread** | `SemanticThread`                         | Семантическая ветка **по смыслу** вокруг anchor — utterances, отобранные эвристиками и (later) семантическим анализом. **Не** синоним reply-chain                                                 |
 | **Recent messages** | `RecentMessages`                         | Хронологическое окно `MessageRef` перед anchor                                                                                                                                                    |
@@ -59,15 +59,16 @@ MessageRef {
   quotedExcerpt: string | null
   links: string[]
   forward?: MessageForward
-  transport: string          // v0: denorm с conversation; source of truth — boundary / conversation
 }
 ```
 
 `created_at` ingest — только `messages.created_at`; в ref при read — fallback если `sent_at` пуст.
 
+**Нет `transport`** — tag живёт на turn boundary (`TurnRequest.transport`) и в `SelectContext` при read; в PG — колонка `messages.transport` при `saveMessage`, не часть domain ref.
+
 ### Transport tag и Conversation
 
-Transport — **свойство conversation**, не utterance. v0: denorm на `MessageRef` + PG. Target: explicit `TurnRequest.transport` / compose `ctx.transport` — work [#33](https://github.com/skepsik/utlas-ts/issues/33). Composite identity `(transport, conversationId)` — [#30](https://github.com/skepsik/utlas-ts/issues/30).
+Transport — **свойство conversation**, не utterance. **Не denorm на `MessageRef`:** ingress передаёт tag в `saveMessage({ transport })` и в `TurnRequest.fromMessage({ transport })`; compose — `ctx.transport`. Composite identity `(transport, conversationId)` — [#30](https://github.com/skepsik/utlas-ts/issues/30). Boundary refactor — [#33](https://github.com/skepsik/utlas-ts/issues/33) ✅.
 
 ### ParticipantRef
 
@@ -106,7 +107,7 @@ Ingress (TG): `parseForward` → persist → prompt `[forward from: …]` в `ll
 
 ```ts
 MessageReadPort { selectors: { replyChain; windowBefore(limit) } }
-SelectContext { anchor }
+SelectContext { anchor; transport }
 ```
 
 См. [storage-mapping](./storage-mapping.md).
@@ -118,7 +119,7 @@ SelectContext { anchor }
 **Turn** — не «один вызов LLM», а **скобка конкурентности**: от qualifying anchor до deliver/cancel; burst supersede внутри gap.
 
 ```ts
-TurnRequest { anchor; arity: DialogArity; replySender; services; supersedeMaxGapMs; textOverride? }  // + transport on boundary — later
+TurnRequest { anchor; arity: DialogArity; replySender; services; supersedeMaxGapMs; textOverride?; transport }
 ```
 
 v0: monolith `runTurn` + `turn-state.ts` (module-global Map, supersede). Целевая механика — [turn-pipeline](./turn-pipeline.md).
@@ -155,4 +156,3 @@ Qualifying + ingress/egress: [transport](./transport.md).
 - `ParticipantRef.role` vs `isBot`
 - Chat settings — `bot_chats` per [tenancy](./tenancy.md)
 - ThreadingProfile — контракт + storage
-- Transport tag — work [#33](https://github.com/skepsik/utlas-ts/issues/33)

@@ -10,7 +10,6 @@ MessageRef ↔ Postgres. Domain types — [domain](./domain.md).
 |-------------------|-----------------|------------|
 | `conversationId` | `conversation_id` | |
 | `id` | `message_id` | |
-| `transport` | `transport` | |
 | `sender.key` | `user_id` | prefix `tg:` только в domain |
 | `sender.label` | `display_name` | |
 | `sender.handle` | `username` | |
@@ -21,6 +20,8 @@ MessageRef ↔ Postgres. Domain types — [domain](./domain.md).
 | `sentAt` | `sent_at` | UTC `YYYY-MM-DD HH:mm:ss` |
 | `forward.from.label` | `forward_from` | |
 | `forward.originAt` | `forward_origin_at` | |
+
+**Не на `MessageRef`:** `transport` — колонка PG `messages.transport`; задаётся при `saveMessage({ ref, transport })` и при read (`getMessage(transport, …)`, `SelectContext.transport`). `rowToRef` не мапит transport в ref.
 
 Conversation settings / watermark: `conversations` per `(transport, conversation_id)` — [tenancy](./tenancy.md) (`bot_chats` later).
 

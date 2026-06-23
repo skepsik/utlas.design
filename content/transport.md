@@ -120,8 +120,7 @@ grammY update
   - `forward` через `parseForward` → `MessageForward`
   - `quotedExcerpt` через `parseQuote`
   - `links` — regex URL из текста
-  - `transport: "telegram"` — denorm на ref; conceptually свойство conversation ([domain](./domain.md))
-- `persistIngress` → `saveMessage` (PG) + `quotedText`, `quotePosition`, `replyToMessageId`
+- `persistIngress` → `saveMessage({ ref, transport: TELEGRAM_TAG, … })` + `quotedText`, `quotePosition`, `replyToMessageId`; transport **не** на `MessageRef` ([domain](./domain.md))
 
 ### Qualifying (`trigger.ts`)
 
@@ -168,13 +167,13 @@ Transport отвечает только за **синхронизацию PG с 
 
 ## Transport tag на boundary
 
-Transport tag — conversation, не message. Ingress задаёт один раз; target — `TurnRequest.transport`, prompt `ctx.transport`. Spec + acceptance — **[#33](https://github.com/skepsik/utlas-ts/issues/33)**. Hub: [domain](./domain.md) § Transport tag.
+Transport tag — conversation scope, не utterance. Ingress: `TELEGRAM_TAG` в `saveMessage` и `TurnRequest.fromMessage({ transport })`; prompt — `ctx.transport`. **Не поле `MessageRef`.** [#33](https://github.com/skepsik/utlas-ts/issues/33) ✅. Hub: [domain](./domain.md) § Transport tag.
 
 ## Стык с turn
 
 ```ts
-TurnRequest.fromMessage({ anchor, arity, replySender, services, supersedeMaxGapMs })  // + transport — target
-TurnRequest.fromAsk({ ... , text })  // textOverride для USER MESSAGE
+TurnRequest.fromMessage({ anchor, arity, replySender, services, supersedeMaxGapMs, transport })
+TurnRequest.fromAsk({ ... , text, transport })  // textOverride для USER MESSAGE
 ```
 
 Turn pipeline **не** импортирует grammY. Egress только через `ReplySender` на request.
@@ -234,7 +233,7 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 
 - [ ] **`bot_off` в TurnQualification** — перенести check из `runTurn` в trigger или убрать из type
 - [x] **Dedupe** `telegramReplyTo` / `replyToForAnchor` → `turn/reply-to-anchor.ts` ([#29](https://github.com/skepsik/utlas-ts/issues/29))
-- [ ] **Transport boundary** — [#33](https://github.com/skepsik/utlas-ts/issues/33)
+- [x] **Transport boundary** — transport на `TurnRequest` / persist, не на `MessageRef` ([#33](https://github.com/skepsik/utlas-ts/issues/33))
 - [ ] **Second transport** — шаблон подпапки + registry factory
 - [ ] **Ingress enrichment** — hook до `persistIngress`
 - [ ] **Multi-bot** — qualifying на self binding per [tenancy](./tenancy.md)
