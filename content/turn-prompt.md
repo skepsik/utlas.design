@@ -117,5 +117,5 @@ Feat-24 пробовал `Contributor → mergeSignalPatches`. **Убрано** 
 - Group meta-visibility content — [#20](https://github.com/skepsik/utlas-ts/issues/20)
 - Enrichment fragments в compose — [turn-pipeline](../turn-pipeline.md)
 - `TurnCapabilities` / tools-aware compose — [turn-pipeline](../turn-pipeline.md) § Later
-- Shared context для multi-bot — [notes/context-bus](../notes/context-bus.md) (spike)
+- Shared context для multi-bot — [attention/context-bus](content/prompts/context-bus.md) (spike)
 - Retrieval trim/rank — stub `retrieval/`

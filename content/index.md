@@ -43,9 +43,9 @@
 | -------- | ---- |
 | [tenancy](./tenancy.md) | Multi-bot, owner, RLS, secrets |
 
-## Notes
+## Attention
 
-Заметки на потом — [notes/](./notes/index.md).
+Чеклисты и spikes — [attention/](./attention/index.md).
 
 Timezone ([#48](https://github.com/skepsik/utlas-ts/issues/48)) — work issue до sign-off.
 

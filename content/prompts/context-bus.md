@@ -1,7 +1,5 @@
 # Context bus
 
-> **Note** — design spike / backlog. Не канон read path; влияет на prompt только если реализуем shared store.
-
 ## Контекст
 
 Telegram Bot API **не доставляет** сообщения bot→bot. В группе с двумя ботами каждый видит только human + свой egress — не реплики другого бота.

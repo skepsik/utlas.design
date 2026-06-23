@@ -184,6 +184,16 @@
   },
   "active": "6f8477e0711492cb",
   "lastOpenFiles": [
+    "content/prompts/context-bus.md",
+    "content/attention/index.md",
+    "content/prompts",
+    "content/turn-prompt.md",
+    "content/attention/registries.md",
+    "content/attention/notes/registries.md",
+    "content/attention/notes/index.md",
+    "content/attention/notes/context-bus.md",
+    "content/attention/notes",
+    "content/attention",
     "README.md",
     "content/llm-execution-policy.md",
     "content/layout.md",
@@ -192,7 +202,6 @@
     "content/notes/index.md",
     "content/notes/context-bus.md",
     "content/notes/registries.md",
-    "content/turn-prompt.md",
     "content/turn-pipeline.md",
     "content/notes",
     "content/envelope/compose-blocks.md",
@@ -205,12 +214,6 @@
     "content/tools/index.md",
     "content/envelope/journal.md",
     "content/tools",
-    "content/envelope",
-    "content/message-search.md",
-    "content/llm-envelope.md",
-    "content/transport.md",
-    "content/tenancy.md",
-    "content/storage-mapping.md",
-    "content/journal.md"
+    "content/envelope"
   ]
 }

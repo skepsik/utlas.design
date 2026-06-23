@@ -1,6 +1,6 @@
 # Registries
 
-> **Note** — чеклист на потом, не описание текущей структуры. Gate для кода: `.cursor/rules/ts-layout.mdc` § Registries.
+> **Attention** — чеклист при работе с registry, не описание layout.
 
 ## Контекст
 
