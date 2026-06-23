@@ -232,12 +232,11 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 ## Open
 
 - [ ] **`bot_off` в TurnQualification** — перенести check из `runTurn` в trigger или убрать из type
-- [x] **Dedupe** `telegramReplyTo` / `replyToForAnchor` → `turn/reply-to-anchor.ts` ([#29](https://github.com/skepsik/utlas-ts/issues/29))
-- [x] **Transport boundary** — transport на `TurnRequest` / persist, не на `MessageRef` ([#33](https://github.com/skepsik/utlas-ts/issues/33))
+
+## Later
+
 - [ ] **Second transport** — шаблон подпапки + registry factory
 - [ ] **Ingress enrichment** — hook до `persistIngress`
 - [ ] **Multi-bot** — qualifying на self binding per [tenancy](./tenancy.md)
-- [ ] **Empty edit → `text=""`** — transport (`edits.ts`), parity intent
-- [ ] **LLM regen on edit** — turn (parity `turn_handlers`), не transport
-
----
+- [ ] **Empty edit → `text=""`** — transport (`edits.ts`)
+- [ ] **LLM regen on edit** — turn, не transport

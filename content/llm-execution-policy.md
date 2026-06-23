@@ -74,21 +74,14 @@ Router: `createStepAdapter(step)` — retry из **step.policy**, не global co
 
 ---
 
-## Work breakdown (implement)
+## Цель
 
-1. Canonical design (this page)
-2. Migration + seed `standard_retry` (= current constants)
-3. FK `policy_id` on steps; backfill → `standard_retry`
-4. DTO + read port; router reads per-step policy
-5. Thin `llm/policy.ts` → error taxonomy only (`isUnavailableError`, shared retryable codes)
-6. Second policy in seed (`quick_fail`) + step assignment demo
+1. Migration + seed `standard_retry` (= current constants)
+2. FK `policy_id` on steps; backfill → `standard_retry`
+3. DTO + read port; router reads per-step policy
+4. Thin `llm/policy.ts` → error taxonomy only (`isUnavailableError`, shared retryable codes)
+5. Second policy in seed (`quick_fail`) + step assignment demo
 
----
+## Open
 
-## Acceptance (design)
-
-- [ ] Грань strategy vs policy согласована
-- [ ] Policy = per-node; strategy = ordered nodes + optional global budget
-- [ ] Schema sketch не ломает port boundaries router (#22)
-
----
+- Strategy vs policy — граница согласована на этой странице; уточнения по schema sketch vs router ([#22](https://github.com/skepsik/utlas-ts/issues/22)) — при реализации

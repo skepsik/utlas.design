@@ -81,9 +81,12 @@ Seed в migration; tuning later.
 
 ---
 
-## Open
+## Цель
 
 - [ ] Tool loop в `runTurn` ([#38](https://github.com/skepsik/utlas-ts/issues/38))
 - [ ] `availableToolsResolver` + registry в PromptComposer deps
 - [ ] PG block `tools` + seed
-- [ ] Parallel executor (later)
+
+## Later
+
+- [ ] Parallel executor

@@ -1,6 +1,6 @@
 # LLM answer envelope
 
-**Реализовано (work):** базовый envelope `{ shouldReply, text }` — [#39](https://github.com/skepsik/utlas-ts/issues/39) ✅. Расширения ниже — open.
+**Сейчас:** `{ shouldReply, text }` — [#39](https://github.com/skepsik/utlas-ts/issues/39).
 
 ---
 
@@ -133,11 +133,14 @@ PG block `response_format` — формат JSON + optional-поля по мер
 
 ---
 
-## Open
+## Цель
 
 - [ ] `toolCalls` + tool loop — [#38](https://github.com/skepsik/utlas-ts/issues/38)
 - [ ] `journal` — [journal](./journal.md)
 - [ ] `blockTtl` + `compose_blocks` — [compose-blocks](./compose-blocks.md)
 - [ ] `conversationSettings.timezone` — [#48](https://github.com/skepsik/utlas-ts/issues/48)
-- [ ] Parallel tool executor (later)
-- [ ] Nested `sideEffects` wrapper (later, if needed)
+
+## Later
+
+- [ ] Parallel tool executor
+- [ ] Nested `sideEffects` wrapper (если понадобится)

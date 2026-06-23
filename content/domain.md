@@ -131,7 +131,9 @@ Qualifying + ingress/egress: [transport](./transport.md).
 
 ---
 
-## ThreadingProfile (later)
+## Later
+
+### ThreadingProfile
 
 Профиль conversation для эвристик **SemanticThread** builder (voice vs forum vs chat). v0: `replyChain` selector.
 

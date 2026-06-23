@@ -49,10 +49,3 @@
 Чеклисты и spikes — [attention/](./attention/index.md).
 
 Timezone — [#48](https://github.com/skepsik/utlas-ts/issues/48) (open).
-
-## Процесс
-
-- Work-очередь — issues в [utlas-ts](https://github.com/skepsik/utlas-ts) + доска Utlas Roadmap.
-- Канон design — **только** этот репозиторий.
-- Страница = как в коде **сейчас**, либо явно **Сейчас** / **Цель** — без истории миграций и дат sign-off.
-- Не делаем — секция **Rejected** на странице (если есть).
