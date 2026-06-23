@@ -8,10 +8,10 @@
 
 ```bash
 cd utlas-ts
-git clone git@github.com:skepsik/utlas-design.git design
+git clone git@github.com:skepsik/utlas.design.git design
 ```
 
-## Работа
+## Работа с контентом
 
 ```bash
 cd design
@@ -22,6 +22,36 @@ git commit -m "…"
 git push
 ```
 
-Веб-морда (VitePress + Vercel) — позже; источник истины — `content/*.md`.
+## VitePress (локально)
+
+```bash
+cd design
+npm install
+npm run docs:dev      # http://localhost:5173/utlas/wiki/
+npm run docs:build
+npm run docs:preview  # http://localhost:4173/utlas/wiki/
+```
+
+## Deploy (VPS)
+
+Push в `master` → GitHub Actions (`.github/workflows/deploy-wiki.yml`) собирает статику и кладёт на VPS.
+
+**Secrets** в репозитории `utlas.design` (те же, что у utlas-ts deploy):
+
+| Secret | Назначение |
+|--------|------------|
+| `VPS_HOST` | IP/hostname VPS |
+| `VPS_USER` | SSH user (deploy) |
+| `VPS_SSH_KEY` | private key |
+| `VPS_SSH_PORT` | SSH port |
+| `VPS_WIKI_PATH` | опционально; default `$HOME/utlas-wiki/www` |
+
+**Разовая настройка nginx на VPS** (бот/wg/xray не трогаем):
+
+```bash
+bash scripts/setup-vps-wiki-nginx.sh
+```
+
+URL: `http://<VPS_IP>/utlas/wiki/`
 
 Миграция с GitHub design issues — 2026-06 (контент в `content/`).

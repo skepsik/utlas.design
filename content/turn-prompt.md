@@ -2,7 +2,7 @@
 
 Сборка `LlmPrompt` для turn: **composer** в `llm/prompt/` — единственная точка assembly. Текст policy — в PG `prompt_blocks`; порядок секций и envelope — resolver chains в git.
 
-Domain slots — [domain](../domain.md) § Context assembly.
+Domain slots — [domain](./domain.md) § Context assembly.
 
 ---
 
@@ -102,7 +102,7 @@ prompt_blocks (key UNIQUE, text, is_enabled)
 | Новый derived input | `once()` getter на `PromptShared` |
 | Новый PG block | migration/seed + `createTextBlockResolver` или custom resolver |
 | Conditional block | resolver возвращает `null` → omit |
-| Tools list в system | [tools](../tools/index.md) — `availableToolsResolver` (planned #38) |
+| Tools list в system | [tools](./tools/index.md) — `availableToolsResolver` (planned #38) |
 
 ---
 
@@ -115,7 +115,7 @@ Feat-24 пробовал `Contributor → mergeSignalPatches`. **Убрано** 
 ## Later
 
 - Group meta-visibility content — [#20](https://github.com/skepsik/utlas-ts/issues/20)
-- Enrichment fragments в compose — [turn-pipeline](../turn-pipeline.md)
-- `TurnCapabilities` / tools-aware compose — [turn-pipeline](../turn-pipeline.md) § Later
-- Shared context для multi-bot — [attention/context-bus](content/prompts/context-bus.md) (spike)
+- Enrichment fragments в compose — [turn-pipeline](./turn-pipeline.md)
+- `TurnCapabilities` / tools-aware compose — [turn-pipeline](./turn-pipeline.md) § Later
+- Shared context для multi-bot — [context-bus](./prompts/context-bus.md) (spike)
 - Retrieval trim/rank — stub `retrieval/`
