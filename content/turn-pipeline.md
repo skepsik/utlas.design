@@ -25,14 +25,14 @@
 transport: persistIngress → qualifiesForTurn? → runTurn(TurnRequest)
 runTurn:
   bot_enabled → onNewTurnMessage (supersede?) → GenerationTask
-  enrichment → context → LLM → replySender.sendReply + saveBotReply
+  enrichment → context → LLM → if shouldReply: sendReply + saveBotReply
   shouldDiscardOnSend → clearActiveAfterSend   ← stop привязан к send, не к inference
 ```
 
 | | v0 | Target |
 |---|-----|--------|
 | Скобка | неявная, до send | `turn.start` … `turn.stop` |
-| Deliver | всегда после LLM | `deliver if should_reply` |
+| Deliver | `if shouldReply` (debug: silent notice) | явный шаг `deliver` в графе, та же семантика |
 | Burst | cancel task + discard send | re-enter pipeline с `turn.start` |
 | State | module-global Map | injectable store (tech debt) |
 
@@ -50,16 +50,16 @@ runTurn:
 
 - build_context: {}
 - llm:
-    slot: answer             # structured: should_reply + content + actions/plan
+    slot: answer             # structured: shouldReply + content + …
 
 - turn.stop: {}             # явный шаг сценария, не автоматика в llm/
 
 - connector: {}             # 0..N, post-turn
 - deliver:
-    if: should_reply         # false → no-op
+    if: shouldReply         # false → no-op
 ```
 
-**Контракт default inference:** модель **всегда** возвращает `should_reply` (и outcome). Parse fail / битый JSON → **`should_reply: true`** + log (edge case).
+Формат `LlmAnswer` — [envelope](./envelope/index.md#answer-envelope-canonical). `shouldReply: false` → deliver no-op (§ deliver ниже).
 
 **Порядок:** `turn.stop` **до** `deliver`. Post-turn write только после нормального stop.
 
@@ -220,7 +220,7 @@ Agentic loop (tool call → re-compose): compose **внутри** loop, когд
 ## Open
 
 - [ ] Runner zones vs плоский YAML list
-- [ ] Structured output schema для `answer` / `should_reply`
+- [ ] Structured output schema — [envelope](./envelope/index.md)
 - [ ] TurnStateStore API
 - [ ] Где audit `llm_calls` (внутри llm step vs post-stop)
 

@@ -17,7 +17,7 @@
 
 | Страница | Тема |
 | -------- | ---- |
-| [turn-pipeline](./turn-pipeline.md) | Turn start/stop, pipeline, should_reply |
+| [turn-pipeline](./turn-pipeline.md) | Turn start/stop, pipeline, shouldReply |
 | [transport](./transport.md) | Ingress, qualifying, egress |
 | [turn-prompt](./turn-prompt.md) | Prompt composer, PG blocks, envelope |
 | [llm-execution-policy](./llm-execution-policy.md) | Per-step retry vs strategy |

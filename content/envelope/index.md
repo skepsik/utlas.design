@@ -6,62 +6,39 @@
 
 ## Зачем
 
-Единый JSON-контракт на каждый inference-ответ модели (camelCase, structured output на adapter):
+Единый JSON-контракт на каждый inference-ответ модели (**camelCase** на wire, structured output на adapter):
 
 - не ветвить adapter/turn между plain text и structured path;
-- `shouldReply` до tool loop и egress;
+- `shouldReply` и `text` — обязательные поля каждого ответа;
 - execute (tools) и declare (patches) в одном объекте, но **разные фазы** turn.
 
 ---
 
 ## Answer envelope (canonical)
 
-Модель **всегда** возвращает JSON object. Optional-поля: **omit** = без изменений.
-
-### Две фазы (не смешивать)
-
-| Фаза | Поля | Семантика |
-|------|------|-----------|
-| **Execute** (tool loop) | `toolCalls?` | imperative: backend **выполняет** runners — [tools](../tools/index.md) |
-| **Declare** (после loop, до egress) | `scratchpad?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
-
-Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Группировку можно добавить позже.
+Модель **всегда** возвращает JSON object (`LlmAnswer`). Optional-поля: **omit** = без изменений.
 
 ### Полная схема (target)
 
 ```ts
 type LlmAnswer = {
-  shouldReply: boolean;   // false → turn не шлёт deliver
-  text: string;           // тело для пользователя; "" если shouldReply false
+  shouldReply: boolean;
+  text: string;
 
-  toolCalls?: ToolCall[]; // execute в loop; v0 sequential; later parallel deps
+  toolCalls?: ToolCall[];
 
   conversationSettings?: {
     timezone?: string;    // IANA; validate server-side — [#48](https://github.com/skepsik/utlas-ts/issues/48)
   };
-  scratchpad?: Scratchpad; // full replace; omit = unchanged — [scratchpad](./scratchpad.md)
-  blockTtl?: {             // TTL patch compose-blocks; omit = unchanged
+  scratchpad?: Scratchpad; // [scratchpad](./scratchpad.md)
+  blockTtl?: {
     blockId: string;
     ttlTurns: number;     // 0 = revoke
   }[];
 };
-
-type Scratchpad = {
-  decisions: string[];
-  constraints: string[];
-  unresolved_questions: string[];
-  user_preferences: string[];
-};
 ```
 
-### Создание vs TTL compose-blocks
-
-| Действие | Канал |
-|----------|--------|
-| Найти / создать блок (search, FTS, …) | `toolCalls` → tool; начальный `ttlTurns` в args — [tools](../tools/message-search.md) |
-| Продлить / revoke существующий `blockId` | top-level `blockTtl` — [compose-blocks](./compose-blocks.md) |
-
-`blockTtl` **не** synthetic tool в `toolCalls`.
+`Scratchpad` — [scratchpad](./scratchpad.md).
 
 ### Примеры
 
@@ -98,6 +75,24 @@ type Scratchpad = {
 }
 ```
 
+### Две фазы (не смешивать)
+
+| Фаза | Поля | Семантика |
+|------|------|-----------|
+| **Execute** (tool loop) | `toolCalls?` | imperative: backend **выполняет** runners — [tools](../tools/index.md) |
+| **Declare** (после loop, до egress) | `scratchpad?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
+
+Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Группировку можно добавить позже.
+
+### Создание vs TTL compose-blocks
+
+| Действие | Канал |
+|----------|--------|
+| Найти / создать блок (search, FTS, …) | `toolCalls` → tool; начальный `ttlTurns` в args — [tools](../tools/message-search.md) |
+| Продлить / revoke существующий `blockId` | top-level `blockTtl` — [compose-blocks](./compose-blocks.md) |
+
+`blockTtl` **не** synthetic tool в `toolCalls`.
+
 ---
 
 ## Parse и validator
@@ -105,7 +100,7 @@ type Scratchpad = {
 Источник правды в коде — **zod** (`packages/core/src/llm/answer.ts`, `parse-answer.ts`).
 
 - `.strict()` на корне; каждое новое optional-поле — отдельный work-issue + apply handler.
-- **Parse fail / invalid schema** → fallback `shouldReply: true`, `text` = trimmed raw + log ([turn-pipeline](../turn-pipeline.md)).
+- **Parse fail / invalid schema** → fallback `shouldReply: true`, `text` = trimmed raw + log.
 - Declarative patches — **best-effort**: битый `scratchpad` ≠ не слать `text`.
 
 Wire schema для adapters: `zod-to-json-schema` (`answer-json-schema.ts`).
@@ -118,7 +113,7 @@ Wire schema для adapters: `zod-to-json-schema` (`answer-json-schema.ts`).
 1. tool loop по toolCalls (cap итераций) — [tools](../tools/index.md)
 2. declarative patches (atomic): conversationSettings → scratchpad → blockTtl
 3. TTL tick всех active compose_blocks (один раз на завершённый user-turn)
-4. egress если shouldReply
+4. deliver если `shouldReply` — иначе skip ([turn-pipeline](../turn-pipeline.md) § deliver)
 ```
 
 ---

@@ -32,11 +32,11 @@ Wiring: `TurnServices.promptComposer` → `runTurn` вызывает `compose()`
 
 | # | Resolver | Источник |
 |---|----------|----------|
-| 1 | `identity` | PG: `identity.private` \| `identity.group` |
+| 1 | `identity` | PG: `identity.private` \| `identity.group` — `createArityResolver("identity")` |
 | 2 | `turn_handling` | PG |
 | 3 | `response_format` | PG — JSON answer schema hint |
-| 4 | `addressing.telegram_group` | PG; **omit** unless `arity=group` && `transport=telegram` |
-| 5 | `burst` | PG: `burst.private` \| `burst.group` |
+| 4 | `addressing.telegram_group` | PG; custom resolver; **omit** unless `arity=group` && `transport=telegram` |
+| 5 | `burst` | PG: `burst.private` \| `burst.group` — `createArityResolver("burst")` |
 | 6 | `constraints_context` | PG |
 | 7 | `communication_style` | PG |
 | 8 | `response_length_structure` | PG |
@@ -70,6 +70,17 @@ prompt_blocks (key UNIQUE, text, is_enabled)
 - `loadPromptBlock(pg, key)` — missing key → throw; `is_enabled=false` → `null` (секция omit).
 - Редактирование **текста** — в БД; **порядок и conditional logic** — resolvers в git.
 - Manifest / user-editable order в PG — **не** делаем.
+
+### Ключи `prompt_blocks`
+
+| Паттерн | Примеры | Выбор ключа |
+|---------|---------|-------------|
+| flat | `turn_handling`, `response_format` | фиксированная строка в resolver |
+| arity | `identity.private`, `burst.group` | `createArityResolver(stem)` → `stem.private` \| `stem.group` |
+| transport / сценарий | `addressing.telegram_group` | custom resolver; часть после `.` — **пока без общей схемы** (только этот ключ) |
+| вариант фичи | `scratchpad_init`, `scratchpad_reconcile` | `snake_case`, `_` между stem и ролью; conditional compose — [scratchpad](../envelope/scratchpad.md) § Промпт |
+
+Wire JSON answer — [envelope](./envelope/index.md). Ключи `prompt_blocks` — таблица выше.
 
 ---
 
