@@ -203,7 +203,7 @@ Agentic loop (tool call → re-compose): compose **внутри** loop, когд
 - `TurnCapabilities` type + planner step или поля в `TurnRequest` / `ComposeInput`
 - `PromptContext.capabilities` — read-only; resolver'ы как `addressingTelegramGroupResolver` (omit by flag)
 - `LlmGenerateOptions.tools` — [#22](https://github.com/skepsik/utlas-ts/issues/22) adapter surface
-- `llm_model_routes.supports_tools` (или capability flags) — strategy narrowing; см. [llm-execution-policy](./llm-execution-policy.md) policy/strategy hub
+- `llm_model_routes.supports_tools` (или capability flags) — strategy narrowing; см. [llm-execution](./llm-execution.md)
 
 ### Явных переделок не требуется
 

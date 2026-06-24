@@ -108,9 +108,13 @@ effectiveTz = conversation.timezone ?? tenant.timezone ?? null   # tenant — [#
 
 Модель и UI — explicit intent. Transport bootstrap — только пока колонка пуста.
 
-### Prompt (model)
+### Prompt (model declare)
 
-Когда слать ключ — `response_format` (prompt policy).
+**Когда** слать `conversationSettings.timezone` — PG block `conversation_settings.timezone` + conditional resolver ([turn-prompt](../turn-prompt.md)); **не** `response_format`.
+
+Policy (**#58**): только explicit intent в **этом** turn — set/change IANA или `null` при явной просьбе clear; **не** выводить из stored TZ и не из строки `Timestamps:` в user-ленте. Иначе omit `conversationSettings`.
+
+Split policy по другим полям answer — [#59](https://github.com/skepsik/utlas-ts/issues/59).
 
 ---
 
@@ -124,11 +128,10 @@ effectiveTz = conversation.timezone ?? tenant.timezone ?? null   # tenant — [#
 
 ---
 
-## Цель
+## В коде (timezone)
 
-- [ ] `timezone` read-path — [#48](https://github.com/skepsik/utlas-ts/issues/48)
-- [ ] `timezone` model apply — [#58](https://github.com/skepsik/utlas-ts/issues/58)
-- [ ] Transport bootstrap (if null) — later
+- Read-path: колонка, `formatSentAt`, meta в user ([#48](https://github.com/skepsik/utlas-ts/issues/48)).
+- Declare apply: `conversationSettings.timezone` в answer → `applyConversationSettings` в `runTurn` до deliver ([#58](https://github.com/skepsik/utlas-ts/issues/58)).
 
 ## Later
 

@@ -1,6 +1,6 @@
 # LLM answer envelope
 
-**Сейчас:** `{ shouldReply, text }` — [#39](https://github.com/skepsik/utlas-ts/issues/39).
+**Сейчас в wire:** `{ shouldReply, text }` + optional `conversationSettings.timezone` ([#39](https://github.com/skepsik/utlas-ts/issues/39), [#58](https://github.com/skepsik/utlas-ts/issues/58)).
 
 ---
 
@@ -102,7 +102,7 @@ Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Г
 - **Parse fail / invalid schema** → fallback `shouldReply: true`, `text` = trimmed raw + log.
 - Declarative patches — **best-effort**: битый `scratchpad` ≠ не слать `text`.
 
-Wire schema для adapters: `zod-to-json-schema` (`answer-json-schema.ts`).
+Wire schema для adapters: zod → `answer-json-schema.ts`; vendor-specific normalize (напр. Gemini `responseSchema`) — в адаптере, не в compose.
 
 ---
 
@@ -110,16 +110,23 @@ Wire schema для adapters: `zod-to-json-schema` (`answer-json-schema.ts`).
 
 ```text
 1. tool loop по toolCalls (cap итераций) — [tools](../tools/index.md)
-2. declarative patches (atomic): conversationSettings → scratchpad → blockTtl
+2. declarative patches (atomic): conversationSettings (timezone — в коде) → scratchpad → blockTtl
 3. TTL tick всех active compose_blocks (один раз на завершённый user-turn)
 4. deliver если `shouldReply` — иначе skip ([turn-pipeline](../turn-pipeline.md) § deliver)
 ```
+
+Patches **до** deliver, в т.ч. при `shouldReply: false` ([#58](https://github.com/skepsik/utlas-ts/issues/58)).
 
 ---
 
 ## Prompt
 
-PG block `response_format` — формат JSON + optional-поля по мере реализации. Список tools — [tools](../tools/index.md) § Prompt.
+- **Envelope:** PG `response_format` — JSON object, camelCase (без per-field policy).
+- **Declare policy:** отдельные PG blocks + conditional resolvers, напр. `conversation_settings.timezone` ([#58](https://github.com/skepsik/utlas-ts/issues/58)); split `shouldReply` / `text` — [#59](https://github.com/skepsik/utlas-ts/issues/59).
+- **Форма объекта** на wire — адаптер (`responseSchema`), не дублировать в system — [llm-jobs](./llm-jobs.md).
+- Tools list — [tools](../tools/index.md) § Prompt.
+
+Детали цепочки — [turn-prompt](../turn-prompt.md).
 
 ---
 
@@ -135,14 +142,12 @@ PG block `response_format` — формат JSON + optional-поля по мер
 
 ---
 
-## Цель
+## Later
 
 - [ ] `toolCalls` + tool loop — [#38](https://github.com/skepsik/utlas-ts/issues/38)
 - [ ] `scratchpad` — [scratchpad](./scratchpad.md)
 - [ ] `blockTtl` + `compose_blocks` — [compose-blocks](./compose-blocks.md)
-- [ ] `conversationSettings` — [conversation-settings](./conversation-settings.md) ([#48](https://github.com/skepsik/utlas-ts/issues/48), [#58](https://github.com/skepsik/utlas-ts/issues/58))
-
-## Later
+- [ ] Другие ключи `conversationSettings` — [conversation-settings](./conversation-settings.md)
 
 - [ ] Parallel tool executor
 - [ ] Nested `sideEffects` wrapper (если понадобится)

@@ -1,6 +1,6 @@
 # Turn prompt
 
-Сборка `LlmPrompt` для turn: **composer** в `@utlas/core/llm/prompt/`; default resolver chains — `apps/runtime/src/llm/`. Текст policy — в PG `prompt_blocks`; порядок секций — resolvers в git.
+Сборка `LlmPrompt` для turn: **composer** в `@utlas/core/llm/prompt/`; default resolver chains — `apps/runtime/src/llm/`. Текст policy — в PG `prompt_blocks`; **порядок секций — только в git** (`prompt-composer.ts` + тесты). Вики — роли и паттерны, не нумерованный manifest.
 
 Domain slots — [domain](./domain.md) § Context assembly.
 
@@ -26,38 +26,41 @@ Wiring: `TurnServices.promptComposer` → `runTurn` вызывает `compose()`
 
 ---
 
-## System resolvers (`defaultSystemResolvers`)
+## System chain (answer profile)
 
-Порядок фиксирован в `composer.ts`. Блоки — `prompt_blocks.key` через `loadBlock`, кроме conditional resolvers.
+**Порядок — только в коде:** `apps/runtime/src/llm/prompt-composer.ts` (`systemResolvers`). Тесты фиксируют контракт.
 
-| # | Resolver | Источник |
-|---|----------|----------|
-| 1 | `identity` | PG: `identity.private` \| `identity.group` — `createArityResolver("identity")` |
-| 2 | `turn_handling` | PG |
-| 3 | `response_format` | PG — JSON answer schema hint |
-| 4 | `addressing.telegram_group` | PG; custom resolver; **omit** unless `arity=group` && `transport=telegram` |
-| 5 | `burst` | PG: `burst.private` \| `burst.group` — `createArityResolver("burst")` |
-| 6 | `constraints_context` | PG |
-| 7 | `communication_style` | PG |
-| 8 | `response_length_structure` | PG |
-| 9 | `followup_appendix` | PG `followup_appendix`; **omit** unless heuristic `isFollowupAppendixTurn` |
-| 10 | `frame_handling` | PG |
-| 11 | `content_strategy` | PG |
-| 12 | `strict_prohibitions` | PG |
+Группы:
 
-Новая system-секция: row в `prompt_blocks` + resolver в массиве (место в git).
+| Группа | Resolvers / блоки | Источник |
+|--------|-------------------|----------|
+| Voice | `identity` | PG: `identity.private` \| `identity.group` — `createArityResolver` |
+| Turn | `turn_handling` | PG |
+| Answer envelope | `response_format` | PG — JSON object, camelCase |
+| Answer policy | `conversation_settings.timezone`, … | PG + conditional resolvers; per-field — [#59](https://github.com/skepsik/utlas-ts/issues/59) |
+| Transport | `addressing.telegram_group` | PG; **omit** unless `arity=group` && `transport=telegram` |
+| Voice | `burst` | PG: `burst.private` \| `burst.group` |
+| Style / constraints | `constraints_context`, `communication_style`, `response_length_structure`, `frame_handling`, `content_strategy`, `strict_prohibitions` | PG |
+| Heuristic | `followup_appendix` | PG; **omit** unless `isFollowupAppendixTurn` |
+
+**Переходный:** `answerSchemaResolver` (псевдо-TS из zod) — убрать, когда answer-path только structured output; форма в адаптере — [llm-jobs](./llm-jobs.md).
+
+Новая system-секция: row в `prompt_blocks` + resolver в массиве `prompt-composer.ts`.
 
 ---
 
-## User resolvers (`defaultUserResolvers`)
+## User chain (answer profile)
 
-| # | Блок | Resolver | Данные |
-|---|------|----------|--------|
-| 1 | **CHAT HISTORY** | `chatHistoryResolver` | `selectRecentBefore` → `formatThread` |
-| 2 | **SEMANTIC THREAD** | `semanticThreadResolver` | `buildSemanticThread` → `formatThread` |
-| 3 | **USER MESSAGE** | `userMessageResolver` | anchor + `queryText`, optional reply parent |
+**Порядок — в коде:** `userResolvers` в `prompt-composer.ts`.
 
-Порядок зафиксирован в коде и тестах (`prompt-composer.test.ts`).
+| Блок                | Resolver                 | Данные                                      |
+| ------------------- | ------------------------ | ------------------------------------------- |
+| Timestamps meta     | `timestampsMetaResolver` | `effectiveTz` из settings — факт для ленты  |
+| **CHAT HISTORY**    | `chatHistoryResolver`    | `selectRecentBefore` → `formatThread`       |
+| **SEMANTIC THREAD** | `semanticThreadResolver` | `buildSemanticThread` → `formatThread`      |
+| **USER MESSAGE**    | `userMessageResolver`    | anchor + `queryText`, optional reply parent |
+
+Порядок user-слотов (meta → history → thread → message) — контракт envelope
 
 ---
 
@@ -73,12 +76,12 @@ prompt_blocks (key UNIQUE, text, is_enabled)
 
 ### Ключи `prompt_blocks`
 
-| Паттерн | Примеры | Выбор ключа |
-|---------|---------|-------------|
-| flat | `turn_handling`, `response_format` | фиксированная строка в resolver |
-| arity | `identity.private`, `burst.group` | `createArityResolver(stem)` → `stem.private` \| `stem.group` |
-| transport / сценарий | `addressing.telegram_group` | custom resolver; часть после `.` — **пока без общей схемы** (только этот ключ) |
-| вариант фичи | `scratchpad_init`, `scratchpad_reconcile` | `snake_case`, `_` между stem и ролью; conditional compose — [scratchpad](./envelope/scratchpad.md) § Промпт |
+| Паттерн              | Примеры                                   | Выбор ключа                                                                                                 |
+| -------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| flat                 | `turn_handling`, `response_format`        | фиксированная строка в resolver                                                                             |
+| arity                | `identity.private`, `burst.group`         | `createArityResolver(stem)` → `stem.private` \| `stem.group`                                                |
+| transport / сценарий | `addressing.telegram_group`               | custom resolver; часть после `.` — **пока без общей схемы** (только этот ключ)                              |
+| вариант фичи         | `scratchpad_init`, `scratchpad_reconcile` | `snake_case`, `_` между stem и ролью; conditional compose — [scratchpad](./envelope/scratchpad.md) § Промпт |
 
 Wire JSON answer — [envelope](./envelope/index.md). Ключи `prompt_blocks` — таблица выше.
 
@@ -114,6 +117,13 @@ Wire JSON answer — [envelope](./envelope/index.md). Ключи `prompt_blocks`
 | Новый PG block | migration/seed + `createTextBlockResolver` или custom resolver |
 | Conditional block | resolver возвращает `null` → omit |
 | Tools list в system | [tools](./tools/index.md) — `availableToolsResolver` (planned #38) |
+| Второй LLM (inference, local) | [llm-jobs](./llm-jobs.md) — `runLlmJob`, свой profile + strategy |
+
+---
+
+## Answer prompt layers
+
+Envelope + per-field policy в system; **форма объекта** — wire schema в адаптере (structured output), не дублировать псевдо-TS в compose — [llm-jobs](./llm-jobs.md) § Промпт answer, [#59](https://github.com/skepsik/utlas-ts/issues/59).
 
 ---
 

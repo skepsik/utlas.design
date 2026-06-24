@@ -26,7 +26,8 @@ export default defineConfig({
           { text: "Turn pipeline", link: "/turn-pipeline" },
           { text: "Transport", link: "/transport" },
           { text: "Turn prompt", link: "/turn-prompt" },
-          { text: "LLM execution policy", link: "/llm-execution-policy" },
+          { text: "LLM jobs (концепт)", link: "/llm-jobs" },
+          { text: "LLM execution", link: "/llm-execution" },
         ],
       },
       {

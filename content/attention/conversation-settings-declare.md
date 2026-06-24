@@ -34,7 +34,7 @@ Transport-only поля (`botEnabled`, `debugMode`, …) — **не** в answer.
 
 3. **Тип answer** — привязка к `ConversationSettings`, но политика clear может **отличаться** от storage `| null`.
 4. **Apply** в `runTurn` (declare до deliver); **read-path** (промпт) — нужен ли в том же issue.
-5. **`response_format`** — когда модель должна слать ключ (prompt policy).
+5. **Prompt policy** — отдельный PG block на ключ (напр. `conversation_settings.timezone`), conditional resolver; не сваливать в `response_format` — [turn-prompt](../turn-prompt.md).
 6. Wiki — секция на [conversation-settings](../envelope/conversation-settings.md); work-issue.
 
 ---
