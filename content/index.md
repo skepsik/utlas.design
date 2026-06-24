@@ -30,6 +30,7 @@
 | [declarative snapshots](./envelope/declarative-snapshots.md) | Журнал declarative-снимков (`kind`, watermark) |
 | [scratchpad](./envelope/scratchpad.md) | Вид снимка: per-chat рабочий остаток модели |
 | [compose-blocks](./envelope/compose-blocks.md) | Declarative: `blockTtl`, hydrate, TTL |
+| [conversation-settings](./envelope/conversation-settings.md) | Declare-patch: per-chat settings (`timezone`, …) |
 
 ## Tools
 
@@ -48,5 +49,3 @@
 ## Attention
 
 Чеклисты и spikes — [attention/](./attention/index.md).
-
-Timezone — [#48](https://github.com/skepsik/utlas-ts/issues/48) (open).

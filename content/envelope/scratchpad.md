@@ -90,7 +90,7 @@ Eval и debug: не «полнота scratchpad», а регрессии по з
 - running summary / пересказ чата — есть лента и semantic thread;
 - дубли последнего `USER_MESSAGE` — якорь уже в промпте.
 
-**`conversationSettings` vs scratchpad:** формальные server-validated поля (сейчас `timezone`) — в settings. Soft prefs — в `userPreferences`, пока не выросли в формальное поле settings.
+**`conversationSettings` vs scratchpad:** формальные server-validated поля — [conversation-settings](./conversation-settings.md). Soft prefs — в `userPreferences`, пока не выросли в формальное поле settings.
 
 ---
 

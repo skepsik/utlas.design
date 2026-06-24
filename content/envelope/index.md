@@ -27,9 +27,7 @@ type LlmAnswer = {
 
   toolCalls?: ToolCall[];
 
-  conversationSettings?: {
-    timezone?: string;    // IANA; validate server-side — [#48](https://github.com/skepsik/utlas-ts/issues/48)
-  };
+  conversationSettings?: AnswerConversationSettings; // [conversation-settings](./conversation-settings.md)
   scratchpad?: Scratchpad; // [scratchpad](./scratchpad.md)
   blockTtl?: {
     blockId: string;
@@ -38,6 +36,7 @@ type LlmAnswer = {
 };
 ```
 
+`AnswerConversationSettings` — [conversation-settings](./conversation-settings.md).  
 `Scratchpad` — [scratchpad](./scratchpad.md).
 
 ### Примеры
@@ -132,7 +131,7 @@ PG block `response_format` — формат JSON + optional-поля по мер
 | declarative snapshots | [declarative-snapshots](./declarative-snapshots.md) — хранение declare-снимков |
 | `scratchpad` | [scratchpad](./scratchpad.md) — `kind: scratchpad` |
 | `blockTtl` / compose blocks | [compose-blocks](./compose-blocks.md) |
-| `conversationSettings.timezone` | [#48](https://github.com/skepsik/utlas-ts/issues/48) (work) |
+| `conversationSettings` | [conversation-settings](./conversation-settings.md) |
 
 ---
 
@@ -141,7 +140,7 @@ PG block `response_format` — формат JSON + optional-поля по мер
 - [ ] `toolCalls` + tool loop — [#38](https://github.com/skepsik/utlas-ts/issues/38)
 - [ ] `scratchpad` — [scratchpad](./scratchpad.md)
 - [ ] `blockTtl` + `compose_blocks` — [compose-blocks](./compose-blocks.md)
-- [ ] `conversationSettings.timezone` — [#48](https://github.com/skepsik/utlas-ts/issues/48)
+- [ ] `conversationSettings` — [conversation-settings](./conversation-settings.md) ([#48](https://github.com/skepsik/utlas-ts/issues/48), [#58](https://github.com/skepsik/utlas-ts/issues/58))
 
 ## Later
 
