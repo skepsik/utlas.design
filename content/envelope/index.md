@@ -123,7 +123,7 @@ Patches **до** deliver, в т.ч. при `shouldReply: false` ([#58](https://g
 
 - **Envelope:** PG `response_format` — JSON object, camelCase (без per-field policy).
 - **Declare policy:** отдельные PG blocks + conditional resolvers, напр. `conversation_settings.timezone` ([#58](https://github.com/skepsik/utlas-ts/issues/58)); split `shouldReply` / `text` — [#59](https://github.com/skepsik/utlas-ts/issues/59).
-- **Форма объекта** на wire — адаптер (`responseSchema`), не дублировать в system — [llm-jobs](./llm-jobs.md).
+- **Форма объекта** на wire — адаптер (`responseSchema`), не дублировать в system — [llm-jobs](../llm-jobs.md).
 - Tools list — [tools](../tools/index.md) § Prompt.
 
 Детали цепочки — [turn-prompt](../turn-prompt.md).

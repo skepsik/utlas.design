@@ -117,7 +117,7 @@ Wire JSON answer — [envelope](./envelope/index.md). Ключи `prompt_blocks`
 | Новый PG block | migration/seed + `createTextBlockResolver` или custom resolver |
 | Conditional block | resolver возвращает `null` → omit |
 | Tools list в system | [tools](./tools/index.md) — `availableToolsResolver` (planned #38) |
-| Второй LLM (inference, local) | [llm-jobs](./llm-jobs.md) — `runLlmJob`, свой profile + strategy |
+| Второй LLM (inference, local) | [llm-jobs](./llm-jobs.md) — `llmInvoke`, свой profile + strategy |
 
 ---
 
