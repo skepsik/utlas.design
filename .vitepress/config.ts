@@ -36,6 +36,7 @@ export default defineConfig({
           { text: "Declarative snapshots", link: "/envelope/declarative-snapshots" },
           { text: "Scratchpad", link: "/envelope/scratchpad" },
           { text: "Compose blocks", link: "/envelope/compose-blocks" },
+          { text: "Conversation settings", link: "/envelope/conversation-settings" },
         ],
       },
       {
