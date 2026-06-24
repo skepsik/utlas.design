@@ -100,7 +100,7 @@ Ingress (TG): `parseForward` → persist → prompt `[forward from: …]` в `@u
 
 **Замысел:** собрать реплики, **семантически** относящиеся к anchor (reply, open utterance, fork, deixis, …) — через `MessageSelector` registry и эвристики (`ThreadingProfile`, later LLM). Детали target-модели — [semantic-thread](./semantic-thread.md).
 
-**v0:** selector `replyChain` — literal walk по `anchorRef`; совпадает с TG reply-chain, достаточно для parity. **Не путать** с доменным определением SemanticThread.
+**v0:** selector `replyChain` — literal walk по `anchorRef`; совпадает с TG reply-chain. **Не путать** с доменным определением SemanticThread.
 
 ### MessageReadPort
 

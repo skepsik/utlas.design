@@ -4,7 +4,7 @@
 
 Домен ([domain](./domain.md)) agnostic: `MessageRef`, turn. Transport нормализует сырой event → `MessageRef` и обратно.
 
-**Сейчас:** Telegram v0 — [parity checklist](#parity-checklist-ts) ниже.
+**Сейчас:** Telegram v0 — [checklist](#v0-checklist) ниже.
 
 ---
 
@@ -107,7 +107,7 @@ grammY update
                        → TurnRequest.fromMessage → runTurn
 ```
 
-**Persist всегда до gate** — сообщения без qualifying тоже сохраняются (parity Python).
+**Persist всегда до gate** — сообщения без qualifying тоже сохраняются.
 
 **Команды с `/`** в generic handler пропускаются (`message.text?.startsWith("/")`).
 
@@ -151,7 +151,7 @@ Transport отвечает только за **синхронизацию PG с 
 
 | Событие | Telegram v0 | Политика |
 |---------|-------------|----------|
-| **Edit** (`edited_message`) | ✅ приходит | `edits.ts` → `updateMessageText`: обновить **только** `messages.text`. Quote / forward / reply / `sentAt` **не** пересчитывать (parity `edit_handlers.py`). **Без** `runTurn`. |
+| **Edit** (`edited_message`) | ✅ приходит | `edits.ts` → `updateMessageText`: обновить **только** `messages.text`. Quote / forward / reply / `sentAt` **не** пересчитывать. **Без** `runTurn`. |
 | **Edit → пусто** (текст и caption сняты) | ✅ как edit | Считать **очисткой контента**, не delete row: persist `text = ""`. *(Сейчас skip — stale; small fix в transport.)* |
 | **Delete** (сообщение исчезло без edit) | ❌ Bot API не шлёт update в private/group | Row в PG **не удалять** — last-known snapshot. Reply-chain и `llm_calls` ссылаются на `message_id`. |
 | **Delete** (другие transport / Business API) | later | Опционально `deleted_at` + tombstone; row по-прежнему не DELETE. |
@@ -159,7 +159,7 @@ Transport отвечает только за **синхронизацию PG с 
 **Не делаем на transport:**
 
 - hard `DELETE` из `messages`
-- regen ответа бота при edit — **turn** (parity `turn_handlers.on_edited_message_llm`; в TS **нет**, later)
+- regen ответа бота при edit — **turn** (later)
 
 **Принцип:** PG — append-only archive по `(transport, chat_id, message_id)`; transport правит только поля, которые реально пришли в update.
 
@@ -212,7 +212,7 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 
 ---
 
-## Parity checklist (TS)
+## v0 checklist
 
 - [x] `transport/telegram/`; grammY только там
 - [x] Ingress: text, quote, forward, reply, links, persist
@@ -224,7 +224,7 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 - [x] `ReplySender` port; turn без SDK import
 - [x] `TurnQualification` boundary type
 - [ ] Ingress transform (STT / enrichment pre-capture) — later
-- [ ] Media / caption-only без текста — по мере parity
+- [x] Media / caption-only без текста
 - [x] `telegramReplyTo` vs `replyToForAnchor` — dedupe ([#29](https://github.com/skepsik/utlas-ts/issues/29))
 
 ---
