@@ -78,7 +78,7 @@ prompt_blocks (key UNIQUE, text, is_enabled)
 | flat | `turn_handling`, `response_format` | фиксированная строка в resolver |
 | arity | `identity.private`, `burst.group` | `createArityResolver(stem)` → `stem.private` \| `stem.group` |
 | transport / сценарий | `addressing.telegram_group` | custom resolver; часть после `.` — **пока без общей схемы** (только этот ключ) |
-| вариант фичи | `scratchpad_init`, `scratchpad_reconcile` | `snake_case`, `_` между stem и ролью; conditional compose — [scratchpad](../envelope/scratchpad.md) § Промпт |
+| вариант фичи | `scratchpad_init`, `scratchpad_reconcile` | `snake_case`, `_` между stem и ролью; conditional compose — [scratchpad](./envelope/scratchpad.md) § Промпт |
 
 Wire JSON answer — [envelope](./envelope/index.md). Ключи `prompt_blocks` — таблица выше.
 
