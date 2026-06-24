@@ -63,6 +63,7 @@ type Scratchpad = {
 | `scratchpad` **present** | full replace → новый snapshot (после validate + truncate) |
 | `scratchpad` **invalid** (schema / size) | snapshot не пишем; effective без изменений |
 | «Очистить» scratchpad | четыре пустых массива `[]`, блок всё равно присутствует |
+| Явный сброс по просьбе юзера | present + все `[]` (не omit) — см. [scratchpad_reconcile](#scratchpad_reconcile) |
 
 Строгая zod-схема: четыре массива строк, без лишних полей. Per-item length cap — отдельный лимит на длину одной строки.
 
@@ -102,7 +103,7 @@ Egress пользователю — только `text` (+ debug). Scratchpad в
 
 - load effective scratchpad → measure size;
 - inject в `[[CURRENT_SCRATCHPAD_STATE]]` бюджет, напр. `742 / 1024 bytes`;
-- при `size > SOFT_THRESHOLD` (напр. 80% `MAX_SCRATCHPAD_SIZE`) — warning в `scratchpad_instructions`: сжать, убрать устаревшее, не добавлять без удаления старого.
+- при `size > SOFT_THRESHOLD` (напр. 80% `MAX_SCRATCHPAD_SIZE`) — warning в `scratchpad_slots` (см. ниже): сжать, убрать устаревшее, не добавлять без удаления старого.
 
 **Post-parse (жёсткий слой):**
 
@@ -112,7 +113,10 @@ Egress пользователю — только `text` (+ debug). Scratchpad в
   2. `decisions`;
   3. `unresolved_questions`;
   4. `user_preferences` — резать первыми.
-- invalid → не save; debug egress — факт ошибки / truncation.
+- invalid → не save; effective без изменений; debug egress — факт ошибки.
+- truncated (после validate, до save) → save урезанный snapshot; debug egress — факт truncation.
+
+Детали validate/truncate — [открытые вопросы](#validate--truncate-backend) (лимиты, единица измерения, гранулярность обрезки).
 
 Умный промпт снижает частоту грубой обрезки, но не снимает гарантию размера.
 
@@ -157,9 +161,75 @@ Forget только двигает `conversations.context_reset_after_message_id
 
 ## Промпт
 
-- Prompt block `scratchpad_instructions` (слот `[[CURRENT_SCRATCHPAD_STATE]]`, `MAX_SCRATCHPAD_SIZE`, `SOFT_THRESHOLD`).
-- `response_format` — optional `scratchpad` и четыре слота.
-- Poisoning: system / safety blocks важнее scratchpad.
+Промпты формируются **исключительно под отправляемый контекст** — отдельные PG-блоки, compose включает по условиям.
+
+**Статус текстов:**
+
+| Блок | Статус |
+|------|--------|
+| `scratchpad_reconcile` | **Канонический текст** — copy в PG block as-is |
+| `scratchpad_search_rule` | **Канонический текст** — copy в PG block as-is |
+| `scratchpad_init` | **Канонический текст** — copy в PG block as-is |
+| `scratchpad_slots` | **ТЗ к PG block** — собрать из секций выше + подстановки `[[…]]` |
+
+`response_format` — optional `scratchpad` и четыре слота (wire schema). Poisoning: system / safety blocks важнее scratchpad.
+
+### Compose (условия)
+
+```text
+scratchpad_slots        — scratchpad-ветка активна (init или reconcile)
+scratchpad_init         — scratchpad-ветка ∧ нет [[CURRENT_SCRATCHPAD_STATE]]
+scratchpad_reconcile    — scratchpad-ветка ∧ есть [[CURRENT_SCRATCHPAD_STATE]]
+scratchpad_search_rule  — scratchpad-ветка ∧ search_messages ∈ availableTools
+```
+
+`scratchpad_search_rule` **не** включается при одном search без scratchpad-ветки.
+
+Слот `[[CURRENT_SCRATCHPAD_STATE]]` — сериализованный effective scratchpad + бюджет (`742 / 1024 bytes`); warning при `> SOFT_THRESHOLD` — часть `scratchpad_slots`.
+
+---
+
+### `scratchpad_slots` (ТЗ)
+
+PG block: семантика слотов (таблица [выше](#что-хранить-и-что-нет)), «не энциклопедия», критерии [`unresolved_questions`](#unresolved_questions), cap 3–5, truncate warning при превышении порога. Точная формулировка — при authoring PG block; содержание — по этой странице.
+
+---
+
+### `scratchpad_init` (канон)
+
+```text
+Если по критериям слотов есть информация, которую нужно удерживать между ходами, — верни scratchpad (все четыре слота).
+Если хранить нечего — не включай scratchpad в ответ.
+```
+
+---
+
+### `scratchpad_reconcile` (канон)
+
+```text
+Ниже текущее состояние scratchpad. После анализа всего видимого окна оцени, должно ли состояние scratchpad выглядеть иначе сейчас.
+
+Верни новый scratchpad только если хотя бы один пункт нужно:
+- добавить;
+- удалить как устаревший или закрытый;
+- переформулировать для большей точности (не ради стиля, если текущая формулировка уже достаточна).
+
+Если пользователь явно просит забыть всё / начать с чистого листа — верни все слоты как [].
+
+Иначе не включай scratchpad в ответ.
+```
+
+Критерий — **delta состояния**, не delta окна: новое сообщение в чате само по себе не повод для апдейта (напр. decision «используем PostgreSQL» + «PostgreSQL отлично себя показывает» → omit).
+
+---
+
+### `scratchpad_search_rule` (канон)
+
+```text
+Не используй search_messages как замену scratchpad: если информация должна влиять на будущие ответы независимо от того, будет ли выполнен поиск, она должна быть в scratchpad.
+```
+
+Связь с [message-search](../tools/message-search.md): search — детали и цитаты из архива; compose blocks — временный кэш (TTL). Scratchpad — обязательства между ходами.
 
 ---
 
@@ -170,8 +240,9 @@ Forget только двигает `conversations.context_reset_after_message_id
 | compose | load effective → `[[CURRENT_SCRATCHPAD_STATE]]` + budget/warning |
 | parse | answer schema (+ optional `scratchpad`) |
 | post-parse | validate → truncate по `MAX_SCRATCHPAD_SIZE` |
-| save | insert snapshot при валидном `scratchpad` |
+| save | insert snapshot при прошедшем validate (в т.ч. после truncate) |
 | invalid | не save; debug egress — факт ошибки |
+| truncated | save урезанный snapshot; debug egress — факт truncation |
 
 ---
 
@@ -179,6 +250,28 @@ Forget только двигает `conversations.context_reset_after_message_id
 
 - Diff scratchpad: `before` vs `after` (structural, по слотам).
 - Invalid / truncated: короткая пометка в debug egress.
+
+---
+
+## Открытые вопросы
+
+### Validate / truncate (backend)
+
+Зафиксировано: strict schema (четыре массива строк); invalid → не save; truncate по приоритету слотов; truncated → save + debug. **Числа и алгоритм — при work-issue.**
+
+| # | Вопрос | Варианты / заметки |
+|---|--------|-------------------|
+| 1 | `MAX_SCRATCHPAD_SIZE` | Стартовое значение? (напр. 1–2 KiB JSON) |
+| 2 | `SOFT_THRESHOLD` | Доля от max (80%?) или абсолют в compose |
+| 3 | Единица измерения | UTF-8 bytes сериализованного JSON vs runes vs «bytes как в промпте» — compose и post-parse должны совпадать |
+| 4 | `MAX_SCRATCHPAD_ITEM_LENGTH` | Per-item cap до slot-truncate; значение |
+| 5 | Гранулярность truncate | Целиком удалять элементы с хвоста массива vs обрезать строку внутри элемента |
+| 6 | Порядок внутри массива | FIFO с конца (последний добавленный первым на удаление?) |
+| 7 | После truncate всё ещё > max | Ещё раунды по слотам до влезания vs reject как invalid |
+| 8 | Cap `unresolved_questions` (3–5) | Только промпт или enforce на validate (лишние → truncate/reject) |
+| 9 | Пустые строки в массивах | Допустимы vs reject; фильтровать на save |
+| 10 | Дубликаты в одном слоте | Dedupe на save или как прислала модель |
+| 11 | Truncation vs invalid в egress | Достаточно debug-пометки или отдельный флаг/метрика для мониторинга частоты |
 
 ---
 
