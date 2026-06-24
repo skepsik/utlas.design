@@ -134,7 +134,8 @@ PG block `response_format` — формат JSON + optional-поля по мер
 | Поле | Страница |
 |------|----------|
 | `toolCalls` | [tools](../tools/index.md) · [geocode](../tools/geocode.md) · [message-search](../tools/message-search.md) |
-| `scratchpad` | [scratchpad](./scratchpad.md) |
+| declarative snapshots | [declarative-snapshots](./declarative-snapshots.md) — хранение declare-снимков |
+| `scratchpad` | [scratchpad](./scratchpad.md) — `kind: scratchpad` |
 | `blockTtl` / compose blocks | [compose-blocks](./compose-blocks.md) |
 | `conversationSettings.timezone` | [#48](https://github.com/skepsik/utlas-ts/issues/48) (work) |
 

@@ -27,7 +27,8 @@
 | Страница | Тема |
 | -------- | ---- |
 | [envelope](./envelope/index.md) | `LlmAnswer`: фазы, схема, parse, turn apply |
-| [scratchpad](./envelope/scratchpad.md) | Declarative: per-chat рабочий остаток модели |
+| [declarative snapshots](./envelope/declarative-snapshots.md) | Журнал declarative-снимков (`kind`, watermark) |
+| [scratchpad](./envelope/scratchpad.md) | Вид снимка: per-chat рабочий остаток модели |
 | [compose-blocks](./envelope/compose-blocks.md) | Declarative: `blockTtl`, hydrate, TTL |
 
 ## Tools

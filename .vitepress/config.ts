@@ -33,6 +33,7 @@ export default defineConfig({
         text: "LLM answer envelope",
         items: [
           { text: "Overview", link: "/envelope/" },
+          { text: "Declarative snapshots", link: "/envelope/declarative-snapshots" },
           { text: "Scratchpad", link: "/envelope/scratchpad" },
           { text: "Compose blocks", link: "/envelope/compose-blocks" },
         ],
