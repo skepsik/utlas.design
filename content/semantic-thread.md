@@ -66,6 +66,18 @@ SemanticThread          ← готовая собранная ветка
 
 TTL reply-chain: **нет** — история слепок, не устаревает. Selector в домене **не** живёт (только `storage/`).
 
+Предполагаемые селекторы (из utlas-bot#42, частично устарело)
+
+| Сценарий                              | Selector(s)                          | Ожидание                   |
+| ------------------------------------- | ------------------------------------ | -------------------------- |
+| Reply на старое со ссылкой вне окна N | `getReplyNodes`                      | ref со ссылкой в shortlist |
+| Ссылка → @bot → ответ → reply на bot  | `getReplyToBotBranch`, link selector | ref со ссылкой включён     |
+| @ + reply на user (fork)              | TBD selector/heuristic               | ветка с bot                |
+| Burst без reply (private)             | `getOpenUtteranceNodes`              | utterance одного sender    |
+| Group: дописка без @                  | `getOpenUtteranceNodes`              | same utterance (#37)       |
+| Quote без reply                       | `getReplyNodes` / anchor             | excerpt + anchor           |
+
+
 ---
 
 ## Якорь

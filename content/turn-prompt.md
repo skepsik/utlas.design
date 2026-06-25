@@ -40,7 +40,7 @@ Wiring: `TurnServices.promptComposer` → `runTurn` вызывает `compose()`
 | Answer policy | `conversation_settings.timezone`, … | PG + conditional resolvers; per-field — [#59](https://github.com/skepsik/utlas-ts/issues/59) |
 | Transport | `addressing.telegram_group` | PG; **omit** unless `arity=group` && `transport=telegram` |
 | Voice | `burst` | PG: `burst.private` \| `burst.group` |
-| Style / constraints | `constraints_context`, `communication_style`, `response_length_structure`, `frame_handling`, `content_strategy`, `strict_prohibitions` | PG |
+| Style / constraints | `constraints_context`, `communication_style`, `response_length_structure`, `frame_handling`, `content_strategy`, `strict_prohibitions` | PG — policy вопросов: [questions-neutral](./prompts/questions-neutral.md) |
 | Heuristic | `followup_appendix` | PG; **omit** unless `isFollowupAppendixTurn` |
 
 **Переходный:** `answerSchemaResolver` (псевдо-TS из zod) — убрать, когда answer-path только structured output; форма в адаптере — [llm-jobs](./llm-jobs.md).

@@ -65,7 +65,10 @@ export default defineConfig({
       },
       {
         text: "Prompts",
-        items: [{ text: "Context bus", link: "/prompts/context-bus" }],
+        items: [
+          { text: "Context bus", link: "/prompts/context-bus" },
+          { text: "Questions neutral (концепт)", link: "/prompts/questions-neutral" },
+        ],
       },
     ],
     socialLinks: [

@@ -43,6 +43,13 @@
 | [geocode](./tools/geocode.md) | Geocoder contract, map pin |
 | [message-search](./tools/message-search.md) | `search_messages` |
 
+## Prompts
+
+| Страница | Тема |
+| -------- | ---- |
+| [questions-neutral](./prompts/questions-neutral.md) | Нейтральный слой ответов (v0), оси A/B/C |
+| [context-bus](./prompts/context-bus.md) | Shared store для multi-bot (spike) |
+
 ## Structure (later)
 
 | Страница | Тема |
