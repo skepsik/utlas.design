@@ -19,6 +19,7 @@ export default defineConfig({
           { text: "Domain", link: "/domain" },
           { text: "Semantic thread", link: "/semantic-thread" },
           { text: "Storage mapping", link: "/storage-mapping" },
+          { text: "Utterance (концепт)", link: "/utterance" },
         ],
       },
       {
@@ -45,6 +46,7 @@ export default defineConfig({
         text: "Tools",
         items: [
           { text: "Overview", link: "/tools/" },
+          { text: "Composite & memory", link: "/tools/composite" },
           { text: "Native tool calls (Rejected)", link: "/tools/native-tool-calls" },
           { text: "Geocode", link: "/tools/geocode" },
           { text: "Message search", link: "/tools/message-search" },

@@ -139,6 +139,7 @@ grammY update
 - длинные ответы — chunk по 4096
 - `reply_parameters.message_id` когда `replyToMessageId` задан
 - `saveBotReply` — persist исходящего с `sender.isBot`, `anchorRef` = trigger
+- **Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65)): `sendLocation` → `MessagePayload` kind `map_pin` в PG — [tools/composite](./tools/composite.md) § Память; turn вызывает через `ReplySender`, не grammY из `turn/`
 
 **Threading policy** (`telegramReplyTo` / `replyToForAnchor` в turn):
 

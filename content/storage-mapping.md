@@ -16,7 +16,9 @@ MessageRef ↔ Postgres. Domain types — [domain](./domain.md).
 | `sender.isBot` | `is_bot` | |
 | `anchorRef` | `reply_to_message_id` | transport signal |
 | `quotedExcerpt` | `quoted_text` | `quote_position` — transport-only |
-| `body` | `text` | |
+| `body` | `text` | plain text; `kind` null |
+| `kind` | `kind` | `NULL` или `map_pin`, later `document`, … — SQL-фильтр |
+| `payload` | `payload` jsonb | поля варианта без `kind`; storage ↔ domain — [composite](./tools/composite.md) |
 | `sentAt` | `sent_at` | UTC `YYYY-MM-DD HH:mm:ss` |
 | `forward.from.label` | `forward_from` | |
 | `forward.originAt` | `forward_origin_at` | |

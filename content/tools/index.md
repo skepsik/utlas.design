@@ -1,8 +1,8 @@
 # LLM tools
 
-Инфраструктура **tool loop**: модель возвращает `toolCalls` в [answer envelope](../envelope/index.md), backend выполняет runners, результат → следующий LLM call (или финальный answer).
+Инфраструктура **tool loop**: модель возвращает `toolCalls` в [answer envelope](../envelope/index.md) — атомарные tools или **`composite`** (цепочки). Backend выполняет runners, результат → следующий LLM call (или финальный answer).
 
-**Work:** [#38](https://github.com/skepsik/utlas-ts/issues/38) (geocode E2E). Контракты tools — страницы ниже.
+**Work:** [#38](https://github.com/skepsik/utlas-ts/issues/38) (loop + composite). Контракты — страницы ниже.
 
 ---
 
@@ -10,14 +10,13 @@
 
 ```text
 LLM answer { toolCalls? }
-  → execute tools sequentially (cap итераций)
+  → execute → tool result JSON (→ ToolRunResult после [#68](https://github.com/skepsik/utlas-ts/issues/68))
   → tool results → next LLM call (loop) или final answer
-  → declarative patches (scratchpad, blockTtl, …) — после loop
-  → egress если shouldReply
+  → declarative patches — после loop
+  → deliver если shouldReply
 ```
 
-- v0: **sequential** execution.
-- Later: parallel executor с dependency graph (независимые tools параллельно, цепочки sequential).
+**Первый этап с моделью:** [#67](https://github.com/skepsik/utlas-ts/issues/67) — только `show_map_pin` после [#65](https://github.com/skepsik/utlas-ts/issues/65).
 
 Координаты и факты из чата **не trust** — только tool output.
 
@@ -26,7 +25,8 @@ LLM answer { toolCalls? }
 ## Размещение
 
 ```text
-tools/runners/          instruments (geocode, message-search, …)
+tools/registry/         atoms + chain edges (composite)
+tools/runners/          instruments (geocode, map-pin, …)
 turn/run-turn.ts        tool loop wiring
 llm/                    adapter structured output, wire schema
 transport/              egress side-effects (sendLocation, …)
@@ -34,7 +34,7 @@ transport/              egress side-effects (sendLocation, …)
 
 Transport не импортирует `llm/`; turn склеивает.
 
-**Решение по native API tools:** [native-tool-calls](./native-tool-calls.md) (**Rejected**).
+**Решения:** [composite](./composite.md) (цепочки, память) · [native-tool-calls](./native-tool-calls.md) (**Rejected**).
 
 ---
 
@@ -42,11 +42,12 @@ Transport не импортирует `llm/`; turn склеивает.
 
 Turn знает набор wired tools (v0: фиксированный; later: policy / per-tenant).
 
-Каждый tool: `name`, JSON schema args, runner в `tools/runners/`.
+Каждый tool: `name`, JSON schema args, runner в `tools/runners/`. Цепочки — **рёбра** между атомами, см. [composite](./composite.md).
 
-| Tool | Страница |
-|------|----------|
-| `geocode_place`, `send_map_pin` | [geocode](./geocode.md) |
+| Tool / механизм | Страница |
+|-----------------|----------|
+| `geocode_place`, `show_map_pin` | [geocode](./geocode.md) · [composite](./composite.md) |
+| `composite` | [composite](./composite.md) |
 | `search_messages` | [message-search](./message-search.md) |
 
 ---
@@ -73,7 +74,7 @@ Registry в `PromptComposer` deps → `PromptContext` (не hardcode в resolver
 
 ### 2. PG block `tools` (policy)
 
-Статичная policy: когда вызывать tools, цепочки (geocode → pin), не выдумывать координаты.
+Статичная policy: когда вызывать tools, **паттерны** (composite vs atom), не выдумывать координаты — [composite](./composite.md) § Стартовые кейсы.
 
 `createTextBlockResolver("tools")` в **defaultSystemResolvers** — после `turn_handling`, рядом с `availableToolsResolver`.
 

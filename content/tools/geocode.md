@@ -1,18 +1,14 @@
 # Geocode
 
-Контракт geocoder и LLM tools для «где X» / «покажи на карте». Реализация — [#38](https://github.com/skepsik/utlas-ts/issues/38).
+Контракт **Geocoder** и атомарные LLM tools `geocode_place` / `show_map_pin`. Потоки, `composite`, память — [composite](./composite.md).
 
-```
-user message → turn (tool loop) → Geocoder → sendLocation egress
-```
-
-Tool loop: [index](./index.md). Answer envelope: [envelope](../envelope/index.md).
+**Work:** [#60](https://github.com/skepsik/utlas-ts/issues/60) ✅ (runner) · [#38](https://github.com/skepsik/utlas-ts/issues/38) (loop) · [#65](https://github.com/skepsik/utlas-ts/issues/65) (pin egress).
 
 ---
 
 ## Geocoder contract
 
-`tools/runners/geocode-types.ts` — **наш формат**; vendor JSON только в адаптерах.
+`tools/runners/geocode/` — **наш формат**; vendor JSON только в адаптерах ([#60](https://github.com/skepsik/utlas-ts/issues/60)).
 
 ```ts
 GeocodeQuery =
@@ -22,84 +18,81 @@ GeocodeQuery =
 
 GeocodePlace = { lat, lon, label, address?, kind?, … }
 
-GeocodeSourceSlice = { vendor, status, places[], error? }  // merge/debug
+GeocodeSourceSlice = { vendor, status, places[], error? }
 
 GeocodeResult = {
   query: GeocodeQuery;
   mode: …;
-  places: GeocodePlace[];   // 1 для point/reverse, N для search
+  places: GeocodePlace[];
   sources?: GeocodeSourceSlice[];
 }
 
 Geocoder = { resolve(query: GeocodeQuery): Promise<GeocodeResult> }
 ```
 
-- Один объект ответа, не `GeocodeResult[]` снаружи.
-- **Reverse** в контракте с первого дня; реализация — stub/mock, потом Yandex.
-- Fallback / merge sources / per-tenant policy — *Later* (`geocode-combine.ts` + config).
+- Один объект ответа снаружи.
+- **Reverse** в контракте; ingress location — *Later*.
+- Fallback / merge — *Later* (`geocode-combine.ts`).
 
 ---
 
 ## Runners layout
 
 ```text
-tools/runners/
-  geocode-types.ts
-  mock-geocoder/          # детерминированные ответы, loop + tests
-  yandex-geocoder/        # v0 real: point; reverse/search — stub → API
-  google-geocoder/        # stub
-  geocode-combine.ts      # Later
+tools/runners/geocode/
+  types.ts, mock.ts, yandex.ts, google.ts, combine.ts, registry.ts
 ```
 
-Vendor = адаптер vendor JSON → `GeocodeResult`. Прямой `fetch`, не MCP.
+Vendor = адаптер → `GeocodeResult`. Прямой `fetch`, не MCP.
 
 ---
 
-## LLM tools
+## LLM tools (атомы)
 
 | Tool | Действие |
 |------|----------|
-| `geocode_place` | `Geocoder.resolve({ mode: "point", text })` (и другие modes по args) |
-| `send_map_pin` | egress `sendLocation` + persist fallback body в PG |
+| `geocode_place` | `Geocoder.resolve({ mode, text \| lat/lon })` — **только данные** |
+| `show_map_pin` | egress `sendLocation` + persist `MessagePayload` kind `map_pin` ([#65](https://github.com/skepsik/utlas-ts/issues/65)) |
 
-Цепочка v0: geocode → pin. Координаты в ответе модели **не** использовать.
+`show_map_pin` в registry **только** если transport `supportsMapPin`.
+
+### Паттерны вызова (не дублировать здесь)
+
+| Смысл | Форма |
+|-------|--------|
+| покажи \<место\> | `composite(input, geocode_place, show_map_pin)` |
+| покажи lat/lon | `show_map_pin` |
+| где \<место\> | `geocode_place` → текст, без pin |
+
+Детали, wire, память — [composite](./composite.md).
+
+Координаты в ответе модели **не trust** — только tool output / mapper на ребре `geocode_place → show_map_pin`.
 
 ---
 
-## Фазы реализации (#38)
+## Фазы
 
-### A. Mock loop (блокер merge)
+1. [#65](https://github.com/skepsik/utlas-ts/issues/65) — egress `sendMapPin` + `map_pin` persist  
+2. [#67](https://github.com/skepsik/utlas-ts/issues/67) — `show_map_pin` + minimal loop  
+2b. [#68](https://github.com/skepsik/utlas-ts/issues/68) — `ToolRunResult` + compose block  
+3. [#38](https://github.com/skepsik/utlas-ts/issues/38) — `geocode_place`, `composite`  
+4. [#66](https://github.com/skepsik/utlas-ts/issues/66) — prompt  
 
-1. Контракт — все modes в types.
-2. `MockGeocoder` — детерминированные `GeocodeResult`.
-3. `toolCalls` в `LlmAnswer`; wire через adapter `responseSchema` — [native-tool-calls](./native-tool-calls.md).
-4. Tool loop в `turn/run-turn.ts`.
-5. Egress `sendLocation` + `saveBotReply`.
-6. Tests: mock LLM + MockGeocoder + mock grammY — без HTTP/ключей.
-7. Prompt: [tools index](./index.md) § Prompt.
-
-### B. Yandex (после A)
-
-- `yandex-geocoder`: `point` → API; `reverse` / `search` по одному.
-- `YANDEX_GEOCODER_API_KEY` в env.
-- Wiring: MockGeocoder → Yandex по config.
+См. [composite](./composite.md) § Этапы, § ToolRunResult.
 
 ---
 
 ## Later
 
-- Ingress location (pin без text) → reverse в turn
-- `search_places` / multi-pin UX
-- `geocode-combine` (fallback, merge sources)
-- per-tenant geocoder policy
+- Ingress location → reverse
+- `search_places` / multi-pin
+- `geocode-combine`, per-tenant policy
 - `sendVenue`, static map PNG
 
 ---
 
-## Verify (#38)
+## Verify
 
 ```bash
 npm run db:up && npm test && npm run check
 ```
-
-Manual (фаза B): «покажи на карте …» → pin в Telegram.

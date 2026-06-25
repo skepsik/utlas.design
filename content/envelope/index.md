@@ -78,7 +78,7 @@ type LlmAnswer = {
 
 | Фаза | Поля | Семантика |
 |------|------|-----------|
-| **Execute** (tool loop) | `toolCalls?` | imperative: backend **выполняет** runners — [tools](../tools/index.md); native API tools — [Rejected](../tools/native-tool-calls.md) |
+| **Execute** (tool loop) | `toolCalls?` | atomic или `composite` — [tools/composite](../tools/composite.md); native API — [Rejected](../tools/native-tool-calls.md) |
 | **Declare** (после loop, до egress) | `scratchpad?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
 
 Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Группировку можно добавить позже.
@@ -134,7 +134,7 @@ Patches **до** deliver, в т.ч. при `shouldReply: false` ([#58](https://g
 
 | Поле | Страница |
 |------|----------|
-| `toolCalls` | [tools](../tools/index.md) · [geocode](../tools/geocode.md) · [message-search](../tools/message-search.md) |
+| `toolCalls` | [tools](../tools/index.md) · [composite](../tools/composite.md) · [geocode](../tools/geocode.md) |
 | declarative snapshots | [declarative-snapshots](./declarative-snapshots.md) — хранение declare-снимков |
 | `scratchpad` | [scratchpad](./scratchpad.md) — `kind: scratchpad` |
 | `blockTtl` / compose blocks | [compose-blocks](./compose-blocks.md) |

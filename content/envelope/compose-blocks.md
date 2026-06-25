@@ -2,7 +2,7 @@
 
 Кэш результатов tool'ов между turn'ами: модель создаёт блок через `toolCalls`, продлевает или revoke через top-level `blockTtl` в answer.
 
-Envelope hub: [index](./index.md). Первый consumer — [message-search](../tools/message-search.md).
+Envelope hub: [index](./index.md). Consumers: [message-search](../tools/message-search.md), [composite § ToolRunResult](../tools/composite.md).
 
 ---
 
@@ -27,7 +27,7 @@ Envelope hub: [index](./index.md). Первый consumer — [message-search](..
 
 ```text
 compose_blocks
-  kind               text NOT NULL          -- message_search | fts | …
+  kind               text NOT NULL          -- message_search | map_pin | fts | …
   block_id           text NOT NULL          -- uuid, UNIQUE per chat
   transport          text NOT NULL
   conversation_id    text NOT NULL
@@ -38,7 +38,7 @@ compose_blocks
   created_at         timestamptz
 ```
 
-При создании из tool result: `hit_message_ids` = ids из hits (текст в PG блока не дублируем).
+При создании из tool result: runner возвращает `ToolRunResult.block` — см. [composite](../tools/composite.md). Для `message_search`: `hit_message_ids` из hits. Для `map_pin` (опционально): `query` с coords + `egressMessageId`.
 
 ---
 
