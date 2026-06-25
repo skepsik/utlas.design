@@ -7,6 +7,7 @@ export default defineConfig({
   base: "/utlas/wiki/",
   srcDir: "content",
   cleanUrls: true,
+  lastUpdated: true,
   head: [["meta", { name: "robots", content: "noindex, nofollow, noarchive" }]],
   themeConfig: {
     nav: [{ text: "Home", link: "/" }],
@@ -72,6 +73,13 @@ export default defineConfig({
     ],
     search: {
       provider: "local",
+    },
+    lastUpdated: {
+      text: "Обновлено",
+      formatOptions: {
+        dateStyle: "medium",
+        timeStyle: "short",
+      },
     },
   },
 });
