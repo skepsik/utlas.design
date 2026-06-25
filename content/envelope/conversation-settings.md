@@ -110,11 +110,9 @@ effectiveTz = conversation.timezone ?? tenant.timezone ?? null   # tenant — [#
 
 ### Prompt (model declare)
 
-**Когда** слать `conversationSettings.timezone` — PG block `conversation_settings.timezone` + conditional resolver ([turn-prompt](../turn-prompt.md)); **не** `response_format`.
+PG `conversation_settings.timezone` ([turn-prompt](../turn-prompt.md)).
 
-Policy (**#58**): только explicit intent в **этом** turn — set/change IANA или `null` при явной просьбе clear; **не** выводить из stored TZ и не из строки `Timestamps:` в user-ленте. Иначе omit `conversationSettings`.
-
-Split policy по другим полям answer — [#59](https://github.com/skepsik/utlas-ts/issues/59).
+**Канон:** patch **только** если пользователь **явно** назвал локацию и есть **уверенность** в одном valid IANA. **Нет уверенности → не обновлять** (omit declare, спросить в `text`). Не угадывать, не маппить расплывчое; meta и лента — read, не основание для patch. `null` — явный clear. [#59](https://github.com/skepsik/utlas-ts/issues/59).
 
 ---
 
