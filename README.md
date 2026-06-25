@@ -22,6 +22,8 @@ git commit -m "…"
 git push
 ```
 
+Новые страницы — [templates/](./templates/README.md) (каркас + стиль языка).
+
 ## VitePress (локально)
 
 ```bash
