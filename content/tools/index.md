@@ -28,11 +28,13 @@ LLM answer { toolCalls? }
 ```text
 tools/runners/          instruments (geocode, message-search, …)
 turn/run-turn.ts        tool loop wiring
-llm/                    adapter function calling, tool defs
+llm/                    adapter structured output, wire schema
 transport/              egress side-effects (sendLocation, …)
 ```
 
 Transport не импортирует `llm/`; turn склеивает.
+
+**Решение по native API tools:** [native-tool-calls](./native-tool-calls.md) (**Rejected**).
 
 ---
 

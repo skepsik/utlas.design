@@ -55,8 +55,8 @@ type LlmAnswer = {
 
 ```json
 {
-  "shouldReply": true,
-  "text": "…",
+  "shouldReply": false,
+  "text": "",
   "toolCalls": [
     { "name": "search_messages", "arguments": { "content": "дедлайн", "ttlTurns": 5 } }
   ]
@@ -78,7 +78,7 @@ type LlmAnswer = {
 
 | Фаза | Поля | Семантика |
 |------|------|-----------|
-| **Execute** (tool loop) | `toolCalls?` | imperative: backend **выполняет** runners — [tools](../tools/index.md) |
+| **Execute** (tool loop) | `toolCalls?` | imperative: backend **выполняет** runners — [tools](../tools/index.md); native API tools — [Rejected](../tools/native-tool-calls.md) |
 | **Declare** (после loop, до egress) | `scratchpad?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
 
 Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Группировку можно добавить позже.

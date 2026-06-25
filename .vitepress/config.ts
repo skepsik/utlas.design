@@ -45,6 +45,7 @@ export default defineConfig({
         text: "Tools",
         items: [
           { text: "Overview", link: "/tools/" },
+          { text: "Native tool calls (Rejected)", link: "/tools/native-tool-calls" },
           { text: "Geocode", link: "/tools/geocode" },
           { text: "Message search", link: "/tools/message-search" },
         ],

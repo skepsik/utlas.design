@@ -38,6 +38,7 @@
 | Страница | Тема |
 | -------- | ---- |
 | [tools](./tools/index.md) | Tool loop, registry, prompt |
+| [native tool calls](./tools/native-tool-calls.md) | Rejected: провайдерский tools API |
 | [geocode](./tools/geocode.md) | Geocoder contract, map pin |
 | [message-search](./tools/message-search.md) | `search_messages` |
 
