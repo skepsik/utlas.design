@@ -2,15 +2,23 @@
 
 Hub — [domain](./domain.md) § SemanticThread.
 
-**Сейчас:** v0 — selector `replyChain` only.
+---
 
-**Цель:** сборка через Selector → Heuristic → Builder (ниже).
+## Сейчас vs цель
+
+| | Сейчас (v0) | Цель |
+|---|-------------|------|
+| Сборка | `buildSemanticThread` вызывает только `MessageReadSelectors.replyChain` | Selector → Heuristic → Builder (ниже) |
+| CHAT HISTORY | `selectRecentBefore` + `MessageReadSelectors.windowBefore(limit)` | отдельный selector `recentN` (design) |
+| Heuristic / layered Builder | нет в коде | domain-слой поверх selectors |
 
 ---
 
 ## Что такое SemanticThread
 
-`SemanticThread` — семантическая ветка разговора, собранная доменным сервисом (Builder) из кандидатов-нод. Её задача — подсветить модели конкретный разговор на фоне общего шума чата.
+`SemanticThread` — семантическая ветка разговора, собранная доменным сервисом из кандидатов-нод (`MessageRef`). Её задача — подсветить модели конкретный разговор на фоне общего шума чата.
+
+В коде: тип `{ messages: MessageRef[] }` (`@utlas/core/domain/model/semantic-thread`).
 
 `SemanticThread` ≠ reply-chain в Telegram. Reply-chain — одна из возможных эвристик, не определение понятия.
 
@@ -19,6 +27,8 @@ Hub — [domain](./domain.md) § SemanticThread.
 ## Архитектура сборки
 
 ### Три слоя: Selector → Heuristic → Builder
+
+Целевая модель (v0 — только первый слой, см. **Сейчас vs цель**):
 
 ```text
 Trigger (qualifying-событие)
@@ -39,24 +49,32 @@ Builder (domain/)       ← выбирает комбинацию selector+heuri
 SemanticThread          ← готовая собранная ветка
 ```
 
+**Сейчас (v0):** `buildSemanticThread` в `@utlas/core/domain/services/build-semantic-thread` — монолитный builder: вызывает `readPort.selectors.replyChain.select({ anchor, transport })`, без отдельного Heuristic-слоя.
+
 ---
 
 ## Selector
 
 Живёт в `storage/` — реализация напрямую связана со способом хранения, это не вопрос домена.
 
-Реализует методы перебора/выборки нод.
+Контракт: `MessageSelector` — `{ id, select(ctx: SelectContext) }`; registry на порту — `MessageReadPort.selectors` (`MessageReadSelectors`).
 
-| Селектор (target) | Описание | v0 в коде |
-| ----------------- | -------- | --------- |
-| `recentN` | Последние N нод от триггера | — (отдельно: `windowBefore` для slot **CHAT HISTORY**) |
-| `anchorRefChain` | Цепочка по `anchorRef` от триггера | `replyChain` для slot **SEMANTIC THREAD** |
+| Селектор (цель) | Описание | Сейчас (v0) |
+| ----------------- | -------- | ----------- |
+| `recentN` | Последние N нод от триггера | `windowBefore(limit)` → `createWindowBeforeSelector`; доменный сервис `selectRecentBefore` для slot **CHAT HISTORY** |
+| `anchorRefChain` | Цепочка по полю `MessageRef.anchorRef` от триггера | `replyChain` → `createReplyChainSelector`; slot **SEMANTIC THREAD** в `buildSemanticThread` |
+
+TTL reply-chain: **нет** — история слепок, не устаревает. Selector в домене **не** живёт (только `storage/`).
 
 ---
 
-## Якорь (anchorRef)
+## Якорь
 
-Якорем может быть **любое сообщение** — не только user message. Якорь определяет стартовую точку для селектора `anchorRefChain`. Конкретный выбор якоря — ответственность контекста применения (Builder решает, какой selector/heuristic использовать).
+**Turn anchor** — `MessageRef` в `SelectContext.anchor` / `TurnRequest.anchor` (центр **USER MESSAGE** в prompt). Якорем может быть **любое сообщение** — не только user message.
+
+**`anchorRef`** — поле `MessageRef`: transport-сигнал reply-parent; по нему ходит `replyChain` / целевой `anchorRefChain`.
+
+Якорь определяет стартовую точку для selector `anchorRefChain`. Конкретный выбор якоря — ответственность контекста применения (Builder решает, какой selector/heuristic использовать).
 
 ---
 
@@ -64,11 +82,11 @@ SemanticThread          ← готовая собранная ветка
 
 ### Общий принцип: recall > precision
 
-Лучше захватить лишнее, чем потерять нужное. Финальная фильтрация — задача LLM-шага (если он есть), а не эвристик.
+Лучше захватить лишнее, чем потерять нужное. Финальная фильтрация — задача LLM-шага (если он есть), а не эвристик. Векторный поиск / эмбеддинги **не** планируются.
 
 ### Возвращаемое значение: claim/score
 
-Каждая эвристика возвращает `claim/score` — оценку релевантности ноды. Финальный score при нескольких эвристиках: **открытый вопрос** (сумма или `max(a, b)`).
+Каждая эвристика возвращает `claim/score` — оценку релевантности ноды. Финальный score при нескольких эвристиках — см. **Открытые вопросы**.
 
 ### Типы эвристик
 
@@ -90,8 +108,10 @@ SemanticThread          ← готовая собранная ветка
 ## Builder
 
 - Выбор комбинации selector + heuristic — **исключительно ответственность Builder'а**
-- Возможны рекурсивные проходы (точная алгоритмика TBD)
-- Builder — доменный сервис, не знает о Telegram/транспорте
+- Возможны рекурсивные проходы (точная алгоритмика — **Открытые вопросы**)
+- Builder — доменный сервис, не знает о Telegram/transport
+
+**Сейчас (v0):** роль builder выполняет `buildSemanticThread` (без выбора heuristic).
 
 ---
 
@@ -101,23 +121,10 @@ SemanticThread          ← готовая собранная ветка
 
 ---
 
-## Что НЕ является открытым вопросом
-
-| Вопрос | Ответ |
-| ------ | ----- |
-| TTL reply-chain | Нет. История — слепок, не устаревает |
-| Векторный поиск / эмбеддинги | Нет, не планируется |
-| Якорь = всегда user message | Нет. Якорем может быть любое сообщение |
-| Selector живёт в домене | Нет. Selector в `storage/` |
-
----
-
 ## Открытые вопросы
 
-| # | Вопрос |
-|---|--------|
-| 1 | Алгоритмика рекурсивных проходов Builder'а |
-| 2 | Сложение score двух эвристик: сумма или `max(a, b)`? |
-| 3 | Поведение при превышении context window |
-| 4 | Supersede: объединение SemanticThread прерванной и новой итерации turn — [turn-pipeline](./turn-pipeline.md) |
-| 5 | TTL по эвристикам, отличным от reply-chain (пока не проектировался) |
+- Алгоритмика рекурсивных проходов Builder'а
+- Сложение score двух эвристик: сумма или `max(a, b)`?
+- Поведение при превышении context window
+- **Supersede:** объединение SemanticThread прерванной и новой итерации turn — [turn-pipeline](./turn-pipeline.md)
+- TTL по эвристикам, отличным от reply-chain (пока не проектировался)
