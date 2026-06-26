@@ -90,7 +90,7 @@ Impl: `createTelegramOutboundPort({ api, pg })` в `telegram/egress.ts`. Turn, t
 |-----|-----|-----|
 | **Conversation item** | Вид для пользователя / CHAT HISTORY | `ConversationOutboundItem`: `text`, `map_pin`, … |
 | **Persist policy** | История vs временный вывод в чат | 3-й аргумент `deliver`, **не** поле внутри `kind` |
-| **Observability** | `llm_calls`, `console.*`, future log store | **вне** `OutboundPort` |
+| **Observability** | `llm_calls`, `generation_failures`, `console.*` | **вне** `OutboundPort` |
 
 `log` — **не** `kind` рядом с `map_pin`. Debug/trace в TG = `deliver(..., "ephemeral")`.
 
@@ -104,6 +104,7 @@ Impl: `createTelegramOutboundPort({ api, pg })` в `telegram/egress.ts`. Turn, t
 | User-visible LLM error (не debug) | да | `ephemeral` | короткий текст в TG |
 | UI вне turn (`/settings`, `/forget`, пустой `/ask`) | да | `ephemeral` | подтверждение / статус |
 | LLM invoke audit | нет | — | `llm_calls` (llm-слой) |
+| Generation incident (fail turn) | по политике (см. § ниже) | `ephemeral` или нет | `generation_failures` (**всегда**) |
 | `console.*` | нет | — | ops |
 
 Turn / tools выбирают `item` + `persist`; port — wire + сохранение. `replyToForAnchor` / `telegramReplyTo` — threading в `OutboundContext`, не в имени порта.
@@ -111,6 +112,56 @@ Turn / tools выбирают `item` + `persist`; port — wire + сохране
 **Reject:** `send`/`push` как имя порта; `log` как `kind`; склейка policy внутри `egress.ts` по `debugMode` для save.
 
 **Позже:** `InboundPort.ingest` ≈ `persistIngress` (имя зафиксировано; порт — не в v1).
+
+### Generation failures ([#76](https://github.com/skepsik/utlas-ts/issues/76))
+
+Единая обработка ошибок generation: **durable audit** + **ephemeral egress** из одного handler'а — не размазывать по catch'ам.
+
+**Impl:** `handleGenerationFailure` в `apps/runtime/src/turn/handle-generation-failure.ts`; вызывается из `runGeneration` и safety net на reject `GenerationTask` (`run-turn.ts`).
+
+```text
+любой перехваченный fail generation
+  → console.error
+  → logGenerationFailure (PG, всегда; не зависит от debugMode)
+  → failureEgressText → optional OutboundPort.deliver(..., ephemeral)
+```
+
+**Две оси observability (не смешивать):**
+
+| Store | Роль |
+|-------|------|
+| **`llm_calls`** | Audit **invoke**: latency, provider, `status: ok \| error` на границе `generateReply` |
+| **`generation_failures`** | **Incidents** turn: фаза, `error_text`, `http_code`, `trigger_message_id` |
+
+Один LLM error даёт **обе** записи: `llm_calls` (invoke) + `generation_failures` (incident + egress policy).
+
+**Фазы** (`GenerationFailurePhase`): `llm` | `tool` | `egress` | `settings` | `other`.
+
+| Фаза | Откуда |
+|------|--------|
+| `llm` | `generateReply` / compose / enrichment read в том же `try` |
+| `tool` | `runToolLoop` |
+| `settings` | `applyConversationSettings` после успешного answer |
+| `egress` | `outbound.deliver` ответа модели |
+| `other` | reject `GenerationTask` вне `runGeneration` |
+
+**Ephemeral egress** (`failureEgressText`):
+
+| `debugMode` | Фаза | Чат |
+|-------------|------|-----|
+| on | любая | `formatDebugError(err)` |
+| off | `llm` | короткий `LLM_ERROR` |
+| off | `tool` / `egress` / `settings` / `other` | тишина |
+
+`sendEphemeralEgress` уважает supersede (`shouldDiscardOnSend`) — как обычный egress.
+
+**Вне handler'а:**
+
+- **Enrichment** — swallow + пустой fragment (`enrichTurn`); отдельная политика, не `generation_failures`
+- **Abort** (`AbortError`) — без audit и без egress
+- **Debug silent** (`shouldReply: false` + `debugMode`) — `sendEphemeralEgress(DEBUG_SILENT)`, не failure
+
+Schema: [storage-mapping](./storage-mapping.md) § `generation_failures`. Тесты матрицы: `apps/runtime/test/turn-generation-failure.test.ts` ([#80](https://github.com/skepsik/utlas-ts/issues/80)).
 
 ### Слой / pipeline / порт
 

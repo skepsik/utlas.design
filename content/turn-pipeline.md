@@ -32,12 +32,16 @@
 ```text
 transport: persistIngress → qualifiesForTurn? → runTurn(TurnRequest)
 runTurn:
-  bot_enabled → onNewTurnMessage (supersede?) → GenerationTask
+  bot_enabled → onNewTurnMessage (supersede?) → GenerationTask → runGeneration
   enrichTurn → promptComposer.compose → llmProvider.generate → tool loop?
+  → applyConversationSettings?
   → if shouldReply: outbound.deliver(text, history)
-  → debug/error/silent: outbound.deliver(..., ephemeral)
+  → debug silent: sendEphemeralEgress(DEBUG_SILENT)
+  fail generation → handleGenerationFailure (PG + ephemeral по политике)
   shouldDiscardOnSend → clearActiveAfterSend   ← stop при send, не после LLM
 ```
+
+Failure routing — [transport](./transport.md) § Generation failures ([#76](https://github.com/skepsik/utlas-ts/issues/76)).
 
 | Аспект | Сейчас (v0) | Цель |
 |--------|-------------|------|

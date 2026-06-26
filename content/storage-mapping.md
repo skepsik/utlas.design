@@ -30,3 +30,21 @@ Conversation settings / watermark: `conversations` per `(transport, conversation
 Storage key: `(transport, conversation_id, message_id)`.
 
 Impl read port: `PostgresContextRead` (work [#26](https://github.com/skepsik/utlas-ts/issues/26) closed).
+
+---
+
+## `generation_failures` ([#78](https://github.com/skepsik/utlas-ts/issues/78))
+
+Turn/generation **incidents** — не substitute для `llm_calls` (invoke audit). Политика egress — [transport](./transport.md) § Generation failures.
+
+| Поле (TS / domain) | PG | Примечание |
+|--------------------|-----|------------|
+| `conversationId` | `conversation_id` | |
+| `transport` | `transport` | |
+| `triggerMessageId` | `trigger_message_id` | anchor turn |
+| `phase` | `phase` | `llm` \| `tool` \| `egress` \| `settings` \| `other` |
+| `errorText` | `error_text` | `briefErrorText(err)` |
+| `httpCode` | `http_code` | nullable |
+| `createdAt` | `created_at` | default `now()` |
+
+Insert: `logGenerationFailure(pg, …)` в `@utlas/core/storage/generation-failures`; wiring через `TurnServices.logGenerationFailure` (`main.ts`).
