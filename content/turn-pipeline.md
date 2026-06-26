@@ -33,8 +33,9 @@
 transport: persistIngress → qualifiesForTurn? → runTurn(TurnRequest)
 runTurn:
   bot_enabled → onNewTurnMessage (supersede?) → GenerationTask
-  enrichTurn → promptComposer.compose → llmProvider.generate
-  → if shouldReply: sendReply + saveBotReply
+  enrichTurn → promptComposer.compose → llmProvider.generate → tool loop?
+  → if shouldReply: outbound.deliver(text, history)
+  → debug/error/silent: outbound.deliver(..., ephemeral)
   shouldDiscardOnSend → clearActiveAfterSend   ← stop при send, не после LLM
 ```
 
@@ -102,7 +103,7 @@ YAML: `turn.start` / `turn.stop` **один раз в файле**; runner **п�
 |-----------|-----------|
 | `MessageReadPort`, load context / graph | connector write |
 | `build_context`, enrichment read-only | thread.append / persist graph |
-| `llm.generate` (+ `AbortSignal`) | deliver, `saveBotReply` |
+| `llm.generate` (+ `AbortSignal`) | `OutboundPort.deliver` (post-turn) |
 
 Ingress (persist входящего) — **до** `turn.start`.  
 **Все write** (connector, deliver, audit batch, materialize thread) — **после** `turn.stop`.

@@ -52,7 +52,7 @@ Vendor = адаптер → `GeocodeResult`. Прямой `fetch`, не MCP.
 | Tool | Действие |
 |------|----------|
 | `geocode_place` | `Geocoder.resolve({ mode, text \| lat/lon })` — **только данные** |
-| `show_map_pin` | egress `sendLocation` + persist `MessagePayload` kind `map_pin` ([#65](https://github.com/skepsik/utlas-ts/issues/65)) |
+| `show_map_pin` | `OutboundPort.deliver` map_pin + persist `MessagePayload` ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#69](https://github.com/skepsik/utlas-ts/issues/69)) |
 
 `show_map_pin` в registry **только** если transport `supportsMapPin`.
 
@@ -72,7 +72,7 @@ Vendor = адаптер → `GeocodeResult`. Прямой `fetch`, не MCP.
 
 ## Фазы
 
-1. [#65](https://github.com/skepsik/utlas-ts/issues/65) — egress `sendMapPin` + `map_pin` persist  
+1. [#65](https://github.com/skepsik/utlas-ts/issues/65) — `OutboundPort.deliver` map_pin + persist  
 2. [#67](https://github.com/skepsik/utlas-ts/issues/67) — `show_map_pin` + minimal loop  
 2b. [#68](https://github.com/skepsik/utlas-ts/issues/68) — `ToolRunResult` + compose block  
 3. [#38](https://github.com/skepsik/utlas-ts/issues/38) — `geocode_place`, `composite`  

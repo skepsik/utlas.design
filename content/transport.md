@@ -13,7 +13,7 @@
 | Термин | Смысл |
 |--------|--------|
 | **Ingress** | Сырой event → `MessageRef` → persist. Quote, forward, reply, `sentAt`, participant — здесь. |
-| **Egress** | Ответ наружу: send reply, формат (HTML), threading (`reply_parameters`). Turn знает только `ReplySender`. |
+| **Egress** | Ответ наружу: wire (HTML, threading) + опциональный persist. Turn и handlers знают только **`OutboundPort.deliver`**. |
 | **Qualifying** | «Это обращение к **нашему** binding?» — transport-specific, **до** `runTurn`. |
 | **Transport** | Ingress + qualifying + egress + wiring для одного мессенджера. |
 
@@ -33,42 +33,94 @@ Ingress = трафик в систему, egress = из системы.
 
 ```
 transport/
-  base.ts                 ReplySender, Transport, IngressResult
+  types.ts                OutboundPort, ConversationOutboundItem, Transport, …
   turn-qualification.ts   TurnQualification + TurnQualificationFactory
   factory.ts              createTransport (type guard)
   registry.ts             TransportRegistry
   index.ts
 
   telegram/
-    bot.ts                createTelegramBot → Transport
+    bot.ts                createTelegramBot → Transport; shared OutboundPort
     handlers.ts           grammY wiring: commands + message handler
     ingress.ts            tgMessageToRef, persistIngress
     forward.ts            parseQuote, parseForward, parseForwardLabel
     trigger.ts            qualifiesForTurn, shouldRespondInGroup
-    egress.ts             createReplySender, telegramReplyTo, markdown chunk
+    egress.ts             createTelegramOutboundPort, wire + persist by policy
+    outbound-context.ts   OutboundContext from grammY message (egress вне turn)
+    outbound-deliver.ts   deliverEphemeralFromMessage (handlers / settings)
     format.ts             markdownToTelegramHtml
     edits.ts              edited_message → updateMessageText
-    settings.ts           /settings → chats table
+    settings.ts           /settings → chats table + OutboundPort ephemeral
     texts.ts, constants.ts
-    index.ts              re-exports
+    index.ts              createTelegramBot
 ```
 
 **Вне transport/** (agnostic): `@utlas/core` (`domain/`, `storage/`, `llm/`), `apps/runtime` (`turn/`, `enrichment/`, `clients/`, `orchestrator/`, `main.ts`).
 
 ---
 
-## Ports (`transport/base.ts`)
+## Ports (`transport/types.ts`)
 
-### ReplySender
+### OutboundPort ([#69](https://github.com/skepsik/utlas-ts/issues/69))
+
+Единый egress наружу: **wire + persist по policy** в одном вызове. Не `BotEgress`, не `TurnEgress`, не domain `Utterance`.
 
 ```ts
-ReplySender {
-  sendReply({ chatId, replyToMessageId?, text }): Promise<SentMessage>
-  saveBotReply({ chatId, anchorMessageId, text, sent }): Promise<MessageRef>
-}
+type ConversationOutboundItem =
+  | { kind: "text"; body: string }
+  | { kind: "map_pin"; lat: number; lon: number; label: string };
+
+/** history = messages / CHAT HISTORY; ephemeral = wire only */
+type OutboundPersistPolicy = "history" | "ephemeral"; // default: history
+
+type OutboundPort = {
+  deliver(
+    item: ConversationOutboundItem,
+    ctx: OutboundContext,
+    persist?: OutboundPersistPolicy,
+  ): Promise<MessageRef | void>;
+};
 ```
 
-Impl: `createReplySender({ api, pg })` в `telegram/egress.ts`. Turn вызывает `sendReply` + `saveBotReply`; grammY не импортирует.
+Impl: `createTelegramOutboundPort({ api, pg })` в `telegram/egress.ts`. Turn, tool runners и transport handlers вызывают **`deliver`**; grammY не импортирует из `turn/`.
+
+**Три оси (не смешивать):**
+
+| Ось | Что | Где |
+|-----|-----|-----|
+| **Conversation item** | Вид для пользователя / CHAT HISTORY | `ConversationOutboundItem`: `text`, `map_pin`, … |
+| **Persist policy** | История vs временный вывод в чат | 3-й аргумент `deliver`, **не** поле внутри `kind` |
+| **Observability** | `llm_calls`, `console.*`, future log store | **вне** `OutboundPort` |
+
+`log` — **не** `kind` рядом с `map_pin`. Debug/trace в TG = `deliver(..., "ephemeral")`.
+
+**Матрица (v1):**
+
+| Запись | Egress (чат) | `persist` | Куда |
+|--------|--------------|-----------|------|
+| Ответ модели (`shouldReply`) | да | `history` | `messages` |
+| Map pin | да | `history` | `messages` + `map_pin` payload |
+| Debug: `DEBUG_SILENT`, ошибки в debugMode | да | `ephemeral` | операторский trace в TG |
+| User-visible LLM error (не debug) | да | `ephemeral` | короткий текст в TG |
+| UI вне turn (`/settings`, `/forget`, пустой `/ask`) | да | `ephemeral` | подтверждение / статус |
+| LLM invoke audit | нет | — | `llm_calls` (llm-слой) |
+| `console.*` | нет | — | ops |
+
+Turn / tools выбирают `item` + `persist`; port — wire + сохранение. `replyToForAnchor` / `telegramReplyTo` — threading в `OutboundContext`, не в имени порта.
+
+**Reject:** `send`/`push` как имя порта; `log` как `kind`; склейка policy внутри `egress.ts` по `debugMode` для save.
+
+**Позже:** `InboundPort.ingest` ≈ `persistIngress` (имя зафиксировано; порт — не в v1).
+
+### Слой / pipeline / порт
+
+| Уровень | Вход | Выход |
+|---------|------|--------|
+| **Слой transport** | ingress | egress |
+| **Шаг pipeline** (orchestrator YAML) | `ingress` | `deliver` |
+| **Метод порта** | `ingest` (later) | **`deliver`** |
+
+`StepRegistry` регистрирует orchestrator-step `"deliver"` (stub [#58](https://github.com/skepsik/utlas-ts/issues/58)); runtime egress — тот же `OutboundPort`.
 
 ### Transport
 
@@ -98,9 +150,10 @@ Factory: `TurnQualificationFactory.qualified / .rejected`.
 
 ```
 grammY update
-  ├─ /settings     → settings.ts (chats table, без turn)
-  ├─ /forget       → resetChatContext + reply
+  ├─ /settings     → settings.ts → OutboundPort ephemeral (без turn)
+  ├─ /forget       → resetChatContext → OutboundPort ephemeral
   ├─ /ask          → persistIngress → TurnRequest.fromAsk → runTurn
+  │                  (пустой текст → ephemeral, без turn)
   ├─ edited_message → updateMessageText (edits.ts)
   └─ message       → persistIngress
                        → qualifiesForTurn?
@@ -135,11 +188,14 @@ grammY update
 
 ### Egress (`egress.ts` + `format.ts`)
 
+- `createTelegramOutboundPort.deliver` — единая точка wire + persist
 - `markdownToTelegramHtml` → `parse_mode: "HTML"`; fallback plain text при ошибке API
 - длинные ответы — chunk по 4096
-- `reply_parameters.message_id` когда `replyToMessageId` задан
-- `saveBotReply` — persist исходящего с `sender.isBot`, `anchorRef` = trigger
-- **Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65)): `sendLocation` → `MessagePayload` kind `map_pin` в PG — [tools/composite](./tools/composite.md) § Память; turn вызывает через `ReplySender`, не grammY из `turn/`
+- `reply_parameters.message_id` когда `replyToMessageId` в `OutboundContext`
+- `persist: "history"` — persist исходящего с `sender.isBot`, `anchorRef` = trigger
+- `persist: "ephemeral"` — только wire, **без** row в `messages`
+- **Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65)): `kind: "map_pin"` → `sendLocation` + `MessagePayload` в PG — [tools/composite](./tools/composite.md) § Память; runner вызывает `OutboundPort.deliver`, не grammY из `turn/`
+- **Вне turn** ([#75](https://github.com/skepsik/utlas-ts/issues/75)): `deliverEphemeralFromMessage` в handlers/settings — тот же port, `OutboundContext` из command message
 
 **Threading policy** (`telegramReplyTo` / `replyToForAnchor` в turn):
 
@@ -173,11 +229,11 @@ Transport tag — conversation scope, не utterance. Ingress: `TELEGRAM_TAG` в
 ## Стык с turn
 
 ```ts
-TurnRequest.fromMessage({ anchor, arity, replySender, services, supersedeMaxGapMs, transport })
-TurnRequest.fromAsk({ ... , text, transport })  // textOverride для USER MESSAGE
+TurnRequest.fromMessage({ anchor, arity, outbound, services, supersedeMaxGapMs, transport })
+TurnRequest.fromAsk({ ... , text, outbound, transport })  // textOverride для USER MESSAGE
 ```
 
-Turn pipeline **не** импортирует grammY. Egress только через `ReplySender` на request.
+Turn pipeline **не** импортирует grammY. Egress только через **`OutboundPort`** на request.
 
 Composition root (`main.ts`): `createTelegramBot` + `TransportRegistry.register`; `turnServices.messageReadPort = PostgresContextRead`.
 
@@ -219,10 +275,11 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 - [x] Ingress: text, quote, forward, reply, links, persist
 - [x] Qualifying: private / @mention / reply_to_bot
 - [x] `/ask`, `/forget`, `/settings`
-- [x] Egress: HTML, chunk, reply threading, saveBotReply
+- [x] Egress: HTML, chunk, reply threading, `OutboundPort.deliver` + `history` / `ephemeral`
 - [x] `edited_message` → update text in PG (см. § Message lifecycle)
 - [x] Delete policy: no row DELETE; Telegram delete N/A v0
-- [x] `ReplySender` port; turn без SDK import
+- [x] `OutboundPort`; turn без SDK import ([#69](https://github.com/skepsik/utlas-ts/issues/69))
+- [x] Egress вне turn через тот же port ([#75](https://github.com/skepsik/utlas-ts/issues/75))
 - [x] `TurnQualification` boundary type
 - [ ] Ingress transform (STT / enrichment pre-capture) — later
 - [x] Media / caption-only без текста

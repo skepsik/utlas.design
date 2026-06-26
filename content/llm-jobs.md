@@ -44,7 +44,7 @@ raw → parse → apply / tool loop / deliver / gate …
 
 ```text
 enrichTurn → promptComposer.compose → llmProvider.generate → result.answer
-  → applyConversationSettings → deliver / saveBotReply
+  → applyConversationSettings → outbound.deliver (history | ephemeral)
 ```
 
 `llmProvider` — `createLlmRouter` ([#22](https://github.com/skepsik/utlas-ts/issues/22)); внутри router уже вызывается `parseLlmAnswer` — coupling, см. [llm-execution](./llm-execution.md).

@@ -118,7 +118,7 @@ SelectContext { anchor; transport }
 **Turn** — не «один вызов LLM», а **скобка конкурентности**: от qualifying anchor до deliver/cancel; burst supersede внутри gap.
 
 ```ts
-TurnRequest { anchor; arity: DialogArity; replySender; services; supersedeMaxGapMs; textOverride?; transport }
+TurnRequest { anchor; arity: DialogArity; outbound: OutboundPort; services; supersedeMaxGapMs; textOverride?; transport }
 ```
 
 v0: monolith `runTurn` + `turn-state.ts` (module-global Map, supersede). Целевая механика — [turn-pipeline](./turn-pipeline.md).

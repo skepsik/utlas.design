@@ -76,7 +76,7 @@ utlas-ts/
 |------|------------------|---------|
 | **Domain** | `MessageRef`, `SemanticThread`, `RecentMessages`, `MessageReadPort` | `packages/core/src/domain/` — [domain](./domain.md) |
 | **Turn** | `TurnRequest`, `runTurn`, supersede — **скобка конкурентности** | `apps/runtime/src/turn/` — [turn-pipeline](./turn-pipeline.md) |
-| **Transport** | ingress, qualifying, `ReplySender` | `apps/runtime/src/transport/` — [transport](./transport.md) |
+| **Transport** | ingress, qualifying, **`OutboundPort`** | `apps/runtime/src/transport/` — [transport](./transport.md) |
 | **Clients** | wire + auth; `ClientRegistry` | `apps/runtime/src/clients/` |
 | **Tools** | `sync/` (vendor↔backend), `runners/` (instruments) | `apps/runtime/src/tools/` |
 | **Storage** | PG rows, selectors, watermark | `packages/core/src/storage/` — [storage-mapping](./storage-mapping.md) |
