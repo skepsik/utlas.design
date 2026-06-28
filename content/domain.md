@@ -12,13 +12,15 @@
 | ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **MessageRef**      | `@utlas/core/domain/model/message-ref`   | Одна реплика после ingress; атом хранения и envelope. Plain text — `body` / PG `text`; optional **`MessagePayload`** только для non-text (v0: `map_pin`) — [tools/composite](./tools/composite.md) § Память |
 | **Anchor**          | `TurnRequest.anchor`                     | `MessageRef`, открывающий turn; центр **USER MESSAGE**                                                                                                                                            |
-| **Conversation**    | `conversationId` + transport (composite) | Поток human↔assistant в одном messenger. v0: `conversationId` = TG `chat_id`; полная identity — `(transport, conversationId)` ([#30](https://github.com/skepsik/utlas-ts/issues/30))              |
+| **Conversation**    | `conversationId` (uuid) + `transport`    | Атом разговора в PG: `conversations.id`. Transport wire — `external_key` (`UNIQUE(transport, external_key)`); domain / turn / storage видят только uuid в `MessageRef.conversationId`. Forum topic — отдельная row ([#81](https://github.com/skepsik/utlas-ts/issues/81)). |
+| **DialogArity**     | `TurnRequest.arity`, `conversations.dialog_arity` | `private` \| `group` — qualifying и prompt. **Effective** arity — getter `MembershipInfo.dialogArity` ([#81](https://github.com/skepsik/utlas-ts/issues/81)). |
+| **MembershipInfo**  | `MembershipInfo`, `TurnRequest.membershipInfo` | Domain VO: `wireArity` (из `chat.type` на transport boundary) + `memberCount`. Getter `dialogArity` — duo (`group` + count `2`) → `private`. Transport собирает на read; PG хранит denorm `member_count` + effective `dialog_arity`. |
 | **Transport tag**   | `TurnRequest.transport`, `SelectContext.transport`, persist boundary | Канал доставки (`"telegram"`). **Не поле `MessageRef`** — свойство conversation / turn scope. PG: колонка `messages.transport` при persist. Prompt: `ctx.transport` ([#33](https://github.com/skepsik/utlas-ts/issues/33) ✅) |
 | **Participant**     | `ParticipantRef`                         | Автор реплики                                                                                                                                                                                     |
 | **Semantic thread** | `SemanticThread`                         | Семантическая ветка **по смыслу** вокруг anchor — utterances, отобранные эвристиками и (later) семантическим анализом. **Не** синоним reply-chain                                                 |
 | **Recent messages** | `RecentMessages`                         | Хронологическое окно `MessageRef` перед anchor                                                                                                                                                    |
 | **Turn**            | `TurnRequest` → `runTurn`                | **Скобка конкурентности**: один in-flight ответ на burst/anchor; supersede, cancel, deliver. Pipeline — [turn-pipeline](./turn-pipeline.md)                                                       |
-| **Qualifying**      | `qualifiesForTurn`                       | Transport gate «это обращение к нам?» — **не** domain — [transport](./transport.md)                                                                                                               |
+| **Qualifying**      | `qualifiesForTurn`                       | Transport gate «это обращение к нам?» — **не** domain. `dialogArity` — из `MembershipInfo` на handler boundary (chat-level `member_count` + `chat.type`), не сырой `chat.type` без count ([#81](https://github.com/skepsik/utlas-ts/issues/81)) — [transport](./transport.md) |
 | **Owner**           | tenancy (later)                          | SaaS-клиент; **не** participant — [tenancy](./tenancy.md)                                                                                                                                         |
 | **Assistant**       | —                                        | Разговорный термин; **entity в domain нет**                                                                                                                                                       |
 
@@ -36,7 +38,7 @@ Product voice — participant с `isBot` + binding; **role** (`our_voice`) — l
 packages/core/src/
   domain/
     model/       MessageRef, ParticipantRef, MessageForward, AttributionRef,
-                 SemanticThread, RecentMessages
+                 SemanticThread, RecentMessages, DialogArity, MembershipInfo
     services/    buildSemanticThread, selectRecentBefore
     ports.ts     MessageReadPort, MessageSelector, SelectContext
 ```
@@ -50,7 +52,7 @@ packages/core/src/
 ```ts
 MessageRef {
   id: string
-  conversationId: string
+  conversationId: string   // conversations.id (uuid)
   sender: ParticipantRef
   sentAt: Date
   body: string
@@ -67,7 +69,33 @@ MessageRef {
 
 ### Transport tag и Conversation
 
-Transport — **свойство conversation**, не utterance. **Не denorm на `MessageRef`:** ingress передаёт tag в `saveMessage({ transport })` и в `TurnRequest.fromMessage({ transport })`; compose — `ctx.transport`. Composite identity `(transport, conversationId)` — [#30](https://github.com/skepsik/utlas-ts/issues/30). Boundary refactor — [#33](https://github.com/skepsik/utlas-ts/issues/33) ✅.
+Transport — **свойство conversation**, не utterance. **Не denorm на `MessageRef`:** ingress передаёт tag в `saveMessage({ transport })` и в `TurnRequest.fromMessage({ transport })`; compose — `ctx.transport`.
+
+**Identity:** внутри domain / turn — `conversationId` = uuid (`conversations.id`). На transport/storage boundary — `(transport, external_key)` → resolve/create row ([#81](https://github.com/skepsik/utlas-ts/issues/81)). Transport tag refactor — [#33](https://github.com/skepsik/utlas-ts/issues/33) ✅.
+
+### DialogArity и MembershipInfo
+
+`DialogArity` — `private` | `group`. На turn boundary — **effective** значение из `MembershipInfo.dialogArity`.
+
+**`MembershipInfo`** (`packages/core/src/domain/model/membership-info.ts`):
+
+```ts
+MembershipInfo.create(wireArity, memberCount)
+// wireArity — transport boundary: chat.type === "private" ? "private" : "group"
+// dialogArity (getter):
+//   wire private → private
+//   wire group + memberCount === 2 → private  // duo: human + bot
+//   иначе → group
+// memberCount === null → dialogArity === "group" (пока count неизвестен)
+```
+
+**Transport read (qualifying / turn):** `telegramChatMembershipInfo(pg, chat)` — всегда **chat-level** `member_count` (`tg:{chatId}` без `:t`) + `chat.type` → `MembershipInfo`. Не читает topic-row и не `chat.type` без count.
+
+**PG write (denorm):** `updateConversationMembershipInfoByKeys` — `member_count` + effective `dialog_arity` на перечисленные `external_key` (chat-level + все topic rows, существовавшие на момент write). Источник — `members.ts` / `membershipInfoFromTelegramChat`.
+
+Topic-row с `null` до первого write после появления строки — норма; explorer view наследует с chat-level. Turn на topic не зависит от topic-row count.
+
+**Не путать:** `shouldReply` — право промолчать внутри turn; `participation_mode` — другая ось (later). `dialogArityLocked` + `/settings` override — follow-up ([#81](https://github.com/skepsik/utlas-ts/issues/81) out of scope v1).
 
 ### ParticipantRef
 
@@ -118,8 +146,11 @@ SelectContext { anchor; transport }
 **Turn** — не «один вызов LLM», а **скобка конкурентности**: от qualifying anchor до deliver/cancel; burst supersede внутри gap.
 
 ```ts
-TurnRequest { anchor; arity: DialogArity; outbound: OutboundPort; services; supersedeMaxGapMs; textOverride?; transport }
+TurnRequest { anchor; membershipInfo: MembershipInfo; outbound; services; supersedeMaxGapMs; textOverride?; transport }
+// arity — getter: membershipInfo.dialogArity
 ```
+
+`membershipInfo` — из `telegramChatMembershipInfo` на transport boundary **после** `persistIngress` (и после `initMemberCount` на message path). Не из сырого `chat.type` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
 
 v0: monolith `runTurn` + `turn-state.ts` (module-global Map, supersede). Целевая механика — [turn-pipeline](./turn-pipeline.md).
 

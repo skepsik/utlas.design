@@ -13,14 +13,19 @@ Envelope hub: [index](./index.md).
 **Storage / read** (`@utlas/core/storage`):
 
 ```ts
-type ConversationSettings = {
+type ConversationRecord = {
   conversationId: string;
   botEnabled: boolean;
   debugMode: boolean;
   contextLimitOverride: number | null;
   timezone: string | null;   // IANA; [#48](https://github.com/skepsik/utlas-ts/issues/48)
+  title: string | null;
+  memberCount: number | null;   // this row only; turn/qualify — chat-level via MembershipInfo ([#81](https://github.com/skepsik/utlas-ts/issues/81))
+  transport: TransportTag;
 };
 ```
+
+`dialogArity` **не** в `ConversationRecord` — effective arity на turn boundary: `TurnRequest.membershipInfo.dialogArity` ([domain](../domain.md) § MembershipInfo).
 
 `botEnabled`, `debugMode`, `contextLimitOverride` — transport [`/settings`](../transport.md); в answer **не** входят.
 
@@ -28,7 +33,7 @@ type ConversationSettings = {
 
 ```ts
 type AnswerConversationSettings = Partial<
-  Pick<ConversationSettings, 'timezone'>
+  Pick<ConversationRecord, 'timezone'>
 >;
 ```
 
@@ -56,12 +61,14 @@ Top-level optional в `LlmAnswer` (declare-фаза; **не** `toolCalls`).
 
 ## Storage
 
-v0: колонки на `conversations` (per `(transport, conversation_id)`). Multi-bot — [tenancy](../tenancy.md) later.
+v0: колонки на `conversations` (uuid PK; wire — `external_key`). Multi-bot — [tenancy](../tenancy.md) later.
 
-| Поле `ConversationSettings` | PG (v0) | Writer |
-|---------------------------|---------|--------|
+| Поле | PG (v0) | Writer |
+|------|---------|--------|
 | `botEnabled`, `debugMode`, `contextLimitOverride` | `conversations.*` | transport `/settings` |
+| `dialog_arity`, `member_count` | `conversations.*` | transport `members.ts` (`MembershipInfo` → bulk denorm); не declare из answer |
 | `timezone` | `conversations.timezone` | declare, UI (later), transport bootstrap (later) |
+| `title` | `conversations.title` | `conversationRowTitlePartialFromChat` on ingress / commands |
 
 ---
 

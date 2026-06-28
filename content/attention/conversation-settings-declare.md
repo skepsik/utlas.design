@@ -12,7 +12,7 @@
 
 | Тип | Роль |
 |-----|------|
-| **`ConversationSettings`** | storage / read: всё per-chat в PG + defaults (`getConversationSettings`) |
+| **`ConversationRecord`** | storage / read: per-row PG + defaults (`getConversationRecord`) |
 | **`AnswerConversationSettings`** | wire declare: подмножество полей, которые модель может прислать в `LlmAnswer.conversationSettings` |
 
 Transport-only поля (`botEnabled`, `debugMode`, …) — **не** в answer. Envelope hub — [envelope/index](../envelope/index.md).
@@ -23,7 +23,7 @@ Transport-only поля (`botEnabled`, `debugMode`, …) — **не** в answer.
 
 **При добавлении каждого нового declare-ключа** — явно пересмотреть:
 
-1. **Storage** — колонка / поле в `ConversationSettings`; миграция; validate на write.
+1. **Storage** — колонка / поле в `ConversationRecord`; миграция; validate на write.
 2. **Declare-политика** для этого ключа:
 
    | Операция | Нужно решить |
