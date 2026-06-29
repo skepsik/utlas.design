@@ -22,8 +22,10 @@
 
 Encode: `encodeTelegramConversationKey(chatId, messageThreadId?)`. Decode: `decodeTelegramConversationKey` → `{ chatId, messageThreadId? }`. Egress: `telegramWireTarget(pg, conversationId)` по uuid.
 
-**Ingress:** `Message` → `external_key` + `conversationRowTitlePartialFromChat` → `ensureConversation` → `saveMessage`.  
-**Commands / egress:** тот же локальный resolve; `getConversationRecord` для user settings; `telegramChatMembershipInfo` для `MembershipInfo` / qualifying.
+**Ingress:** `Message` → `ensureTelegramConversation` → `saveMessage`.  
+**Commands / egress:** тот же helper; `getConversationRecord` для user settings; `telegramChatMembershipInfo` для `MembershipInfo` / qualifying.
+
+`ensureTelegramConversation(pg, chat, messageThreadId?)` — тонкая обёртка: `encodeTelegramConversationKey` + `conversationRowTitlePartialFromChat` + `ensureConversation` → `{ conversationId, externalKey }`. **Не hub**, без optional `api` на message path; interim до [#99](https://github.com/skepsik/utlas-ts/issues/99) (`ConversationWireStore.ensure`).
 
 Forum topic = **отдельная** row в `conversations` (свой uuid, watermark, settings). **`member_count` и `dialog_arity` — denorm на chat-level и на topic rows**, которые уже есть в PG на момент write (`writeTelegramMemberCount` → `updateConversationMembershipInfoByKeys`). Новый topic-row после write остаётся с `null`, пока не сработает member-event или `initMemberCount` (backfill с chat-level, без API).
 
@@ -38,7 +40,8 @@ Transport — однонаправленный поток событий; **бе
 | transport | `telegramChatTitle(chat)` | title из grammY `Chat` |
 | transport | `conversationRowTitlePartialFromChat(chat)` | `{ title? }` для upsert |
 | storage | `ConversationRowTitlePartial` | chat-known поля на upsert (`title?`) |
-| storage | `ensureConversation(pg, transport, externalKey, patch?)` | uuid row |
+| transport | `ensureTelegramConversation(pg, chat, threadId?)` | encode + title patch + `ensureConversation` ([#92](https://github.com/skepsik/utlas-ts/issues/92)) |
+| storage | `ensureConversation(pg, transport, externalKey, patch?)` | uuid row (storage; transport via helper) |
 | transport | `membershipInfoFromTelegramChat(chat, count)` | `chat.type` + count → `MembershipInfo` |
 | transport | `telegramChatMembershipInfo(pg, chat)` | chat-level count из PG + boundary VO |
 | storage | `updateConversationMembershipInfoByKeys` | bulk write `member_count` + effective `dialog_arity` |
@@ -55,13 +58,11 @@ flowchart LR
   end
 
   subgraph chat_path ["из Chat / Message"]
-    PATCH["conversationRowTitlePartialFromChat"]
-    KEY["encodeTelegramConversationKey"]
-    ENS["ensureConversation"]
+    ENSURE["ensureTelegramConversation"]
     ING["persistIngress → saveMessage"]
   end
 
-  subgraph members ["members.ts"]
+  subgraph members ["member-events"]
     WRT["writeTelegramMemberCount"]
     INIT["initMemberCount"]
     API["getChatMemberCount"]
@@ -70,8 +71,7 @@ flowchart LR
   MCM --> API --> WRT
   NCM --> WRT
   LCM --> WRT
-  MSG --> PATCH --> ENS
-  MSG --> KEY --> ENS --> ING
+  MSG --> ENSURE --> ING
   MSG --> INIT
   INIT -->|"chatCount null"| API
   INIT -->|"topic null, chat set"| WRT
@@ -103,7 +103,7 @@ flowchart LR
 
 **Не делаем:** bootstrap count на **каждое** сообщение; протаскивание `api` через ingress; hub `resolveTelegramConversation` / `TelegramRuntime`. Welcome — [#87](https://github.com/skepsik/utlas-ts/issues/87).
 
-**Qualifying / turn:** `qualifiesForTurn(message, api, membershipInfo.dialogArity)` — effective arity из VO, не сырой `chat.type`.
+**Qualifying / turn:** `TelegramTurnQualifier.qualify` (или `qualifiesForTurn`) — effective arity из `MembershipInfo`, не сырой `chat.type`.
 
 ---
 
@@ -132,32 +132,51 @@ Ingress = трафик в систему, egress = из системы.
 
 ```
 transport/
-  types.ts                OutboundPort, ConversationOutboundItem, Transport, …
+  types.ts                OutboundPort, OutboundContext, Transport, …
+  text-chunking.ts        splitTextForLimit, sendTextInChunks ([#101](https://github.com/skepsik/utlas-ts/issues/101))
   turn-qualification.ts   TurnQualification + TurnQualificationFactory
   factory.ts              createTransport (type guard)
   registry.ts             TransportRegistry
   index.ts
 
   telegram/
-    bot.ts                createTelegramBot → Transport; shared OutboundPort
-    handlers.ts           grammY wiring: persist → gate → turn
-    chat.ts               telegramChatTitle, membershipInfoFromTelegramChat, telegramChatMembershipInfo
+    bot.ts                createTelegramBot → Transport; register listeners
+    constants.ts, texts.ts, format.ts
+    chat.ts               title, MembershipInfo boundary
     ingress.ts            tgMessageToRef, persistIngress
-    conversation-key.ts   encode/decode external_key; telegramWireTarget (egress)
-    members.ts            member events + initMemberCount + writeTelegramMemberCount
     forward.ts            parseQuote, parseForward, parseForwardLabel
-    trigger.ts            qualifiesForTurn, shouldRespondInGroup
+    qualify.ts            TelegramTurnQualifier; qualifiesForTurn, shouldRespondInGroup
+    conversation-key.ts   encode/decode external_key; telegramWireTarget (egress)
+    conversation/
+      ensure.ts           ensureTelegramConversation ([#92](https://github.com/skepsik/utlas-ts/issues/92))
     egress.ts             createTelegramOutboundPort, wire + persist by policy
-    outbound-context.ts   OutboundContext from grammY message (egress вне turn)
-    outbound-deliver.ts   deliverEphemeralFromMessage (handlers / settings)
-    format.ts             markdownToTelegramHtml
-    edits.ts              edited_message → updateMessageText
-    settings.ts           /settings → chats table + OutboundPort ephemeral
-    texts.ts, constants.ts
+    egress/
+      ephemeral-context.ts   outboundContextFromTelegramMessage, deliverEphemeral*
+    listeners/
+      types.ts            ListenerDeps (+ Pick views)
+      member-events.ts    member events, initMemberCount, writeTelegramMemberCount
+      edited-message.ts   edited_message → updateMessageText
+      message.ts          TelegramMessageTurnHandler (generic message path)
+      commands/
+        index.ts            TelegramCommands — registerCommands
+        ask.ts, forget.ts, settings.ts
     index.ts              createTelegramBot
 ```
 
 **Вне transport/** (agnostic): `@utlas/core` (`domain/`, `storage/`, `llm/`), `apps/runtime` (`turn/`, `enrichment/`, `clients/`, `orchestrator/`, `main.ts`).
+
+### Class vs function (telegram)
+
+| Class | Function / module |
+|-------|-------------------|
+| `createTelegramOutboundPort` (port impl) | `encodeTelegramConversationKey`, `decodeTelegramConversationKey`, `telegramWireTarget` |
+| `TelegramTurnQualifier` | `qualifiesForTurn`, `shouldRespondInGroup` (thin exports) |
+| `TelegramMessageTurnHandler` | `persistIngress`, `tgMessageToRef`, parse* in `forward.ts` |
+| `TelegramCommands` | `handleAskCommand`, `handleForgetCommand`, settings handlers |
+| — | `ensureTelegramConversation`, `conversationRowTitlePartialFromChat`, `deliverEphemeral*` |
+| — | `splitTextForLimit`, `sendTextInChunks` ([#101](https://github.com/skepsik/utlas-ts/issues/101)) |
+
+Resolver/hub-классы (`TelegramRuntime`, `resolveTelegramConversation`) — **не** вводим ([#88](https://github.com/skepsik/utlas-ts/issues/88)).
 
 ---
 
@@ -186,6 +205,34 @@ type OutboundPort = {
 
 Impl: `createTelegramOutboundPort({ api, pg })` в `telegram/egress.ts`. Turn, tool runners и transport handlers вызывают **`deliver`**; grammY не импортирует из `turn/`.
 
+### OutboundContext ([#89](https://github.com/skepsik/utlas-ts/issues/89))
+
+DTO одного `deliver`: куда слать и как persist. **Trigger** (сообщение, открывшее turn / command) и **wire reply** — разные поля.
+
+```ts
+type OutboundContext = {
+  conversationId: string
+  conversation: OutboundConversation
+  triggerMessageId?: string   // semantic: audit, persist anchorRef
+  replyToMessageId?: string   // wire only; undefined → без reply_parameters
+}
+```
+
+| Поле | Смысл |
+|------|--------|
+| `triggerMessageId` | id trigger-сообщения; persist `anchorRef` / audit |
+| `replyToMessageId` | только wire (`reply_parameters` в TG); **по умолчанию не задаётся** |
+
+**Сборщики:**
+
+| Путь | Функция | `replyToMessageId` |
+|------|---------|-------------------|
+| Turn answer / map_pin | `turn/outbound-context.ts` → `outboundContextForTurn(..., "replyToTrigger")` | domain `replyTargetForTrigger` |
+| Ephemeral в turn (debug, errors) | `outboundContextForTurn(...)` без preset | не задаётся |
+| Commands / UI вне turn | `egress/ephemeral-context.ts` → `outboundContextFromTelegramMessage` | не задаётся |
+
+**Threading policy (v0):** не «всегда reply на anchor». Classic turn egress передаёт preset **`replyToTrigger`**; без preset — **none** (поле отсутствует). Правило «когда reply уместен» — domain `replyTargetForTrigger` ([domain](./domain.md) § Outbound reply threading); transport egress только мапит `replyToMessageId` на wire.
+
 **Три оси (не смешивать):**
 
 | Ось | Что | Где |
@@ -209,7 +256,7 @@ Impl: `createTelegramOutboundPort({ api, pg })` в `telegram/egress.ts`. Turn, t
 | Generation incident (fail turn) | по политике (см. § ниже) | `ephemeral` или нет | `generation_failures` (**всегда**) |
 | `console.*` | нет | — | ops |
 
-Turn / tools выбирают `item` + `persist`; port — wire + сохранение. `replyToForAnchor` / `telegramReplyTo` — threading в `OutboundContext`, не в имени порта.
+Turn / tools выбирают `item` + `persist`; `OutboundContext` — через сборщики выше. Port — wire + сохранение.
 
 **Reject:** `send`/`push` как имя порта; `log` как `kind`; склейка policy внутри `egress.ts` по `debugMode` для save.
 
@@ -281,7 +328,7 @@ Schema: [storage-mapping](./storage-mapping.md) § `generation_failures`. Тес
 Transport { type: string; start(): Promise<void>; stop(): Promise<void> }
 ```
 
-Impl: `createTelegramBot(...)` — регистрирует handlers, возвращает `{ type: "telegram", start, stop }`.
+Impl: `createTelegramBot(...)` — `OutboundPort` + `registerMemberEvents` / `registerEditedMessage` / `registerCommands` / `registerMessageTurn` в `bot.ts`.
 
 ### TurnQualification (`transport/turn-qualification.ts`)
 
@@ -294,43 +341,79 @@ Boundary type для qualifying — **не** domain entity:
 
 Factory: `TurnQualificationFactory.qualified / .rejected`.
 
-**v0:** `qualifiesForTurn` возвращает `private | mention | reply_to_bot | not_for_bot`.  
+**v0:** `TelegramTurnQualifier` → `private | mention | reply_to_bot | not_for_bot`.  
 `bot_off` — зарезервирован; **`bot_enabled` проверяется в `runTurn`**, не в trigger.
 
 ---
 
 ## Telegram — handler flow
 
+Wiring в `bot.ts` — один `ListenerDeps`, без hub-класса ([#91](https://github.com/skepsik/utlas-ts/issues/91)).
+
+```mermaid
+flowchart TB
+  UPD["grammY update"]
+  UPD --> MCM["member-events: my_chat_member / join / leave"]
+  UPD --> EDIT["edited-message"]
+  UPD --> CMD["commands: /ask /forget /settings"]
+  UPD --> MSG["message: TelegramMessageTurnHandler"]
+
+  MSG --> ING["persistIngress"]
+  ING --> INIT["initMemberCount"]
+  INIT --> Q["TelegramTurnQualifier.qualify"]
+  Q --> TURN["runTurn"]
+
+  CMD --> ASK["/ask"]
+  ASK -->|"text"| ING2["persistIngress → runTurn"]
+  ASK -->|"empty"| EPH["deliverEphemeral"]
+
+  CMD --> SET["/settings /forget"]
+  SET --> EPH
+```
+
 ```
 grammY update
-  ├─ my_chat_member  → members.ts → getChatMemberCount → writeTelegramMemberCount
-  ├─ new_chat_members / left_chat_member → members.ts → ±delta → writeTelegramMemberCount
-  ├─ /settings     → ensureConversation + getConversationRecord → ephemeral
-  ├─ /forget       → resetConversationContext → ephemeral
-  ├─ /ask          → persistIngress → telegramChatMembershipInfo → TurnRequest.fromAsk → runTurn
-  ├─ edited_message → ensureConversation → updateMessageText
-  └─ message       → persistIngress → initMemberCount → telegramChatMembershipInfo → qualifiesForTurn → runTurn
+  bot.catch → log update error
+  ├─ my_chat_member / new_chat_members / left_chat_member → member-events.ts
+  ├─ edited_message → edited-message.ts → updateMessageText
+  ├─ bot.command:
+  │   ├─ /settings  → settings.ts → ephemeral (не runTurn)
+  │   ├─ /forget    → forget.ts → reset watermark + ephemeral
+  │   └─ /ask       → ask.ts → persist + runTurn | empty → ephemeral
+  └─ message        → message.ts → persist → initMemberCount → qualify → runTurn
 ```
 
-Все message handlers — `persistIngress({ pg })` без `api`. `api` в members на `my_chat_member` и в `initMemberCount` (когда chat-level count ещё null); в `/settings` — `getChatMember` для admin check.
+`api` на message path **не** протаскивается: `getChatMemberCount` — в `member-events` / `initMemberCount`; `getChatMember` — только admin check в `/settings`.
 
-**Persist всегда до gate** — сообщения без qualifying тоже сохраняются.
+**Persist до gate** на generic `message` — сообщения без qualifying тоже в PG.
 
-**Команды с `/`** в generic handler пропускаются (`message.text?.startsWith("/")`).
+Generic `message` **пропускает** строки `message.text?.startsWith("/")` (interim; ложные срабатывания на `/** … */` — [#102](https://github.com/skepsik/utlas-ts/issues/102)).
+
+### Commands ([#90](https://github.com/skepsik/utlas-ts/issues/90))
+
+| Команда | Persist ingress | `runTurn` | Egress |
+|---------|-----------------|-----------|--------|
+| `/settings` | ensure row only | нет | `ephemeral` (статус / подтверждение) |
+| `/forget` | нет | нет | `ephemeral` после watermark |
+| `/ask` (пустой) | нет | нет | `ephemeral` |
+| `/ask` (текст) | да (`persistIngress`) | да (`TurnRequest.fromAsk`) | `history` через turn |
+| generic `message` | да | если qualify | `history` через turn |
+
+Commands **вне** generic `message` handler; `/ask` **обходит** qualifying.
 
 ### Ingress (`ingress.ts` + `forward.ts` + `chat.ts`)
 
-- `encodeTelegramConversationKey` + `conversationRowTitlePartialFromChat(chat)` → `ensureConversation` → uuid
+- `ensureTelegramConversation` → uuid
 - `tgMessageToRef` → `saveMessage` — **не трогает** `member_count` / `dialog_arity`
 
-### Egress вне turn (`outbound-deliver.ts` + `outbound-context.ts`)
+### Egress вне turn (`egress/ephemeral-context.ts`)
 
 - `deliverEphemeralFromMessage(outbound, pg, message, body)`
-- `outboundContextFromTelegramMessage(pg, message)` — ensure + `getConversationRecord` + `telegramChatMembershipInfo`
+- `outboundContextFromTelegramMessage` — ensure + `getConversationRecord`; **без** `replyToMessageId`
 
-### Qualifying (`trigger.ts`)
+### Qualifying (`qualify.ts`)
 
-`dialogArity` — аргумент `qualifiesForTurn` из `MembershipInfo.dialogArity` (**не** сырой `chat.type`).
+`TelegramTurnQualifier.qualify(message, dialogArity)`; `dialogArity` из `MembershipInfo.dialogArity` (**не** сырой `chat.type`).
 
 | `dialogArity` / условие | `via` |
 |-------------------------|-------|
@@ -339,24 +422,18 @@ grammY update
 | `group` + `@mention` бота в entities | `mention` |
 | `group`, иначе | reject `not_for_bot` |
 
-`/ask` — **обходит** qualifying (явный вызов).
-
 ### Egress (`egress.ts` + `format.ts` + `conversation-key.ts`)
 
 - `telegramWireTarget(pg, conversationId)` — uuid → `chat_id` + `message_thread_id?`
 - `createTelegramOutboundPort.deliver` — единая точка wire + persist
 - `markdownToTelegramHtml` → `parse_mode: "HTML"`; fallback plain text при ошибке API
-- длинные ответы — chunk по 4096
-- `reply_parameters.message_id` когда `replyToMessageId` в `OutboundContext`
-- `persist: "history"` — persist исходящего с `sender.isBot`, `anchorRef` = trigger
+- **Длинный text** ([#101](https://github.com/skepsik/utlas-ts/issues/101)): generic `splitTextForLimit` + `sendTextInChunks` в `transport/text-chunking.ts`; telegram `sendTextWire` передаёт `TELEGRAM_MAX_TEXT_LENGTH` (4096) и делегирует в `telegramSendTextOnce` (один `sendMessage` на кусок). Посимвольный split; резка по HTML после escape — out of scope.
+- **Multi-chunk policy (v0):** `replyToMessageId` только на **первый** chunk; `persist: "history"` — одна row с полным `body`, id первого wire-сообщения
+- `persist: "history"` — persist исходящего с `sender.isBot`, `anchorRef` = `triggerMessageId`
 - `persist: "ephemeral"` — только wire, **без** row в `messages`
 - **Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65)): `kind: "map_pin"` → `sendLocation` + `MessagePayload` в PG — [tools/composite](./tools/composite.md) § Память; runner вызывает `OutboundPort.deliver`, не grammY из `turn/`
-- **Вне turn** ([#75](https://github.com/skepsik/utlas-ts/issues/75)): `deliverEphemeralFromMessage` в handlers/settings — тот же port, `OutboundContext` из command message
 
-**Threading policy** (`telegramReplyTo` / `replyToForAnchor` в turn):
-
-- private без reply на trigger → без `reply_parameters`
-- иначе → reply на `anchor.id`
+См. [domain](./domain.md) § Outbound reply threading.
 
 ### Message lifecycle: edit / delete
 
@@ -364,7 +441,7 @@ Transport отвечает только за **синхронизацию PG с 
 
 | Событие | Telegram v0 | Политика |
 |---------|-------------|----------|
-| **Edit** (`edited_message`) | ✅ приходит | `edits.ts` → `updateMessageText`: обновить **только** `messages.text`. Quote / forward / reply / `sentAt` **не** пересчитывать. **Без** `runTurn`. |
+| **Edit** (`edited_message`) | ✅ приходит | `edited-message.ts` → `updateMessageText`: обновить **только** `messages.text`. Quote / forward / reply / `sentAt` **не** пересчитывать. **Без** `runTurn`. |
 | **Edit → пусто** (текст и caption сняты) | ✅ как edit | Считать **очисткой контента**, не delete row: persist `text = ""`. *(Сейчас skip — stale; small fix в transport.)* |
 | **Delete** (сообщение исчезло без edit) | ❌ Bot API не шлёт update в private/group | Row в PG **не удалять** — last-known snapshot. Reply-chain и `llm_calls` ссылаются на `message_id`. |
 | **Delete** (другие transport / Business API) | later | Опционально `deleted_at` + tombstone; row по-прежнему не DELETE. |
@@ -429,7 +506,10 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 `test/conversation-key.test.ts` — encode/decode, General topic.  
 `test/dialog-arity-persist.test.ts` — `updateConversationMembershipInfoByKeys` на topic row.  
 `test/member-handlers.test.ts` — join/leave, `initMemberCount`, bulk write.  
-`test/ingress-conversation.test.ts` — forum topic uuid / general key.
+`test/ingress-conversation.test.ts` — forum topic uuid / general key.  
+`test/commands-ask.test.ts` — `/ask` empty vs text path ([#90](https://github.com/skepsik/utlas-ts/issues/90)).  
+`test/text-chunking.test.ts` — split + reply-on-first policy ([#101](https://github.com/skepsik/utlas-ts/issues/101)).  
+`test/outbound-deliver.test.ts` — deliver policies, long text multi-send.
 
 ---
 
@@ -445,9 +525,11 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 - [x] `OutboundPort`; turn без SDK import ([#69](https://github.com/skepsik/utlas-ts/issues/69))
 - [x] Egress вне turn через тот же port ([#75](https://github.com/skepsik/utlas-ts/issues/75))
 - [x] `TurnQualification` boundary type
+- [x] Listeners layout: `listeners/` + `commands/` ([#91](https://github.com/skepsik/utlas-ts/issues/91))
+- [x] `ensureTelegramConversation` DRY ([#92](https://github.com/skepsik/utlas-ts/issues/92))
 - [ ] Ingress transform (STT / enrichment pre-capture) — later
 - [x] Media / caption-only без текста
-- [x] `telegramReplyTo` vs `replyToForAnchor` — dedupe ([#29](https://github.com/skepsik/utlas-ts/issues/29))
+- [x] Egress delivery model: `triggerMessageId` / `replyToMessageId`, domain `replyTargetForTrigger` ([#89](https://github.com/skepsik/utlas-ts/issues/89))
 - [x] Conversation uuid + `external_key`; forum topics ([#81](https://github.com/skepsik/utlas-ts/issues/81) #82–#84)
 - [x] Member events + `initMemberCount` + bulk denorm `member_count` / `dialog_arity` ([#81](https://github.com/skepsik/utlas-ts/issues/81) #85)
 - [x] `MembershipInfo` + qualifying из effective arity ([#81](https://github.com/skepsik/utlas-ts/issues/81) #86)
@@ -457,11 +539,13 @@ Ingress transform chain (`enrichment → capture`) — later; см. enrichment r
 ## Open
 
 - [ ] **`bot_off` в TurnQualification** — перенести check из `runTurn` в trigger или убрать из type
+- [ ] **Command skip heuristic** — `startsWith("/")` vs Telegram `bot_command` entity ([#102](https://github.com/skepsik/utlas-ts/issues/102))
+- [ ] **Ingress↔egress symmetry** — `ConversationWireStore` ([#99](https://github.com/skepsik/utlas-ts/issues/99))
 
 ## Later
 
 - [ ] **Second transport** — шаблон подпапки + registry factory
 - [ ] **Ingress enrichment** — hook до `persistIngress`
 - [ ] **Multi-bot** — qualifying на self binding per [tenancy](./tenancy.md)
-- [ ] **Empty edit → `text=""`** — transport (`edits.ts`)
+- [ ] **Empty edit → `text=""`** — transport (`edited-message.ts`)
 - [ ] **LLM regen on edit** — turn, не transport

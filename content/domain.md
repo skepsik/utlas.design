@@ -39,7 +39,7 @@ packages/core/src/
   domain/
     model/       MessageRef, ParticipantRef, MessageForward, AttributionRef,
                  SemanticThread, RecentMessages, DialogArity, MembershipInfo
-    services/    buildSemanticThread, selectRecentBefore
+    services/    buildSemanticThread, selectRecentBefore, replyTargetForTrigger
     ports.ts     MessageReadPort, MessageSelector, SelectContext
 ```
 
@@ -160,6 +160,19 @@ enrichment → buildSemanticThread + selectRecentBefore → buildTurnPrompt → 
 
 Qualifying + ingress/egress: [transport](./transport.md).
 
+### Outbound reply threading
+
+`replyTargetForTrigger` (`domain/services/reply-target-for-trigger.ts`) — **к какому message id** привязать исходящее к trigger. Call sites с `ReplyThreadingPreset` (`replyToTrigger` | `none`):
+
+| Preset | Где |
+|--------|-----|
+| `replyToTrigger` | turn answer, `show_map_pin` — `outboundContextForTurn(..., "replyToTrigger")` |
+| *(поле не задаётся)* | ephemeral в turn, commands вне turn |
+
+Правило v0: **group** → reply на `trigger.id`; **private** → только если trigger был reply (`anchorRef !== null` — proxy для in-reply-context; позже может стать derived). `MembershipInfo` — effective `dialogArity` (+ `memberCount` later).
+
+Transport egress: `OutboundContext.replyToMessageId` → wire (`reply_parameters` в TG). Capability «transport не умеет threading» — в egress impl, не в domain. Later при многих preset: `transport/outbound-threading.ts` + `resolveReplyToMessageId`.
+
 ---
 
 ## Later
@@ -175,7 +188,8 @@ Qualifying + ingress/egress: [transport](./transport.md).
 | In | Out |
 |----|-----|
 | `MessageRef`, participants, forward/quote | qualifying (transport) |
-| `SemanticThread`, `RecentMessages`, read port | turn concurrency, LLM, egress |
+| `SemanticThread`, `RecentMessages`, read port | turn concurrency, LLM |
+| `replyTargetForTrigger` (egress threading rule) | wire encoding (transport) |
 | модель semantic thread (не = reply-chain) | social graph |
 | | v0 literal `replyChain` как единственный selector |
 
