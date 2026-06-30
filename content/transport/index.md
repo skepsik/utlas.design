@@ -1,10 +1,10 @@
 # Transport
 
-**Transport layer** — доставка human↔assistant через messengers: ingress, qualifying, egress. Один мессенджer = подпапка `transport/<name>/`; SDK и event wiring **только** там.
+**Transport layer** — доставка human↔assistant через messengers: ingress, qualifying, egress. Один мессенджer = подпапка `transport/<name>/`; SDK и подписка на события **только** там.
 
-Домен ([domain](../domain.md)) agnostic: `MessageRef`, turn. Transport нормализует сырой event → `MessageRef` и обратно.
+Домен ([domain](../domain.md)) agnostic: `MessageRef`, turn. Transport переводит сырой event мессенджера в `MessageRef` и обратно — turn и storage не знают wire.
 
-**Сейчас:** единственная реализация — [Telegram v0](./telegram.md): `InboundPort` / `OutboundPort` ([#110](https://github.com/skepsik/utlas-ts/issues/110), [#69](https://github.com/skepsik/utlas-ts/issues/69)), conversation uuid + `external_key` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
+**Сейчас:** единственная реализация — [Telegram v0](./telegram.md). Симметричные порты ingress/egress ([#110](https://github.com/skepsik/utlas-ts/issues/110), [#69](https://github.com/skepsik/utlas-ts/issues/69)); identity чата — uuid + `external_key` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
 
 ---
 
@@ -12,28 +12,26 @@
 
 | Термин | Смысл |
 |--------|--------|
-| **Ingress** | Сырой event → `MessageRef` → persist. Quote, forward, reply, `sentAt`, participant — здесь. |
-| **Egress** | Ответ наружу: wire + опциональный persist. Turn и handlers знают только **`OutboundPort.deliver`**. |
-| **Qualifying** | «Это обращение к **нашему** binding?» — transport-specific, **до** `runTurn`. |
-| **Transport** | Ingress + qualifying + egress + wiring для одного мессенджера. |
-
-Ingress = трафик в систему, egress = из системы.
+| **Ingress** | Сырой event → нормализация → persist `MessageRef`. Quote, forward, reply, `sentAt`, participant — на этой границе. |
+| **Egress** | Исходящее в чат: wire-формат + опциональная запись в историю. Turn и команды ходят только через **`OutboundPort`**. |
+| **Qualifying** | «Это обращение к **нашему** боту?» — решается в transport, **до** `runTurn`. |
+| **Transport** | Ingress + qualifying + egress + подписка на события одного мессенджера. |
 
 ---
 
-## Зачем `transport/`, а не SDK в корне
+## Зачем отдельный слой
 
-- Один мессенджer = одна подпапка; снаружи — factory + `TransportRegistry`.
-- Новый transport — новая папка + регистрация; domain/turn/storage не трогаем.
-- Правило: **messenger SDK только под `transport/<name>/`** (grammY — в `transport/telegram/`).
+Каждый мессенджer живёт в своей подпапке; снаружи — factory и `TransportRegistry`. Domain, turn и storage не импортируют SDK мессенджера. Добавление второго transport — новая подпапка и регистрация, без правок ядра.
 
 ---
 
-## Ports (`transport/types.ts`)
+## Ports
+
+Контракты в `transport/types.ts`. Wire-специфика — в подпапке мессенджера ([Telegram](./telegram.md)).
 
 ### InboundPort ([#110](https://github.com/skepsik/utlas-ts/issues/110))
 
-Единый ingress снаружи: нормализованный item → persist `MessageRef`. Симметрия `OutboundPort.deliver`. Listeners вызывают **`inbound.ingest`**, не `saveMessage` напрямую.
+Единый ingress **снаружи**: один вызов принимает нормализованное сообщение и пишет его в PG. Симметрия с `OutboundPort.deliver`. Listeners не вызывают storage напрямую.
 
 ```ts
 type ConversationInboundItem = {
@@ -51,11 +49,11 @@ type InboundPort = {
 };
 ```
 
-Wire-persist — в подпапке мессенджера ([Telegram](./telegram.md) § Ingress).
+v0: только `kind: 'user_message'`. Расширения (choice, callback) — отдельные work.
 
 ### InboundContext ([#110](https://github.com/skepsik/utlas-ts/issues/110))
 
-DTO одного `ingest`: **куда** persist. Нормализованный `MessageRef` — в `item`; ctx — scope conversation row.
+Контекст одного `ingest`: **в какой разговор** писать. Полный `MessageRef` лежит в `item`; context — только uuid строки `conversations`.
 
 ```ts
 type InboundContext = { conversationId: string };
@@ -65,28 +63,24 @@ type InboundContext = { conversationId: string };
 |------|--------|
 | `conversationId` | uuid row в PG |
 
-Port отклоняет envelope, если `item.ref.conversationId !== ctx.conversationId` → `null` (guard на call site).
+Если uuid в `item.ref` не совпадает с context — port возвращает `null` (защита от рассинхрона на границе).
 
-**`ConversationInboundItem` (v0):**
+| Поле item | Смысл |
+|-----------|--------|
+| `ref` | готовый `MessageRef` для persist |
+| `rawText` | тело для колонки в PG |
+| `quotedText`, `quotePosition` | цитата, если была на wire |
 
-| Поле | Смысл |
-|------|--------|
-| `kind` | v0: только `user_message` |
-| `ref` | `MessageRef` для `saveMessage` |
-| `rawText` | тело для PG |
-| `quotedText`, `quotePosition` | quote metadata (transport-normalized) |
+На Telegram envelope собирается до вызова port: найти/создать row чата, разобрать wire-сообщение в `MessageRef`, затем `ingest`. Подробнее — [Telegram § Ingress](./telegram.md#ingress).
 
-**Сборщики:**
-
-| Путь | Функция |
-|------|---------|
-| Telegram generic `message`, `/ask` (text) | `prepareTelegramUserMessageInbound` → `InboundEnvelope` |
-
-Impl: `createTelegramInboundPort({ pg })` — wire-agnostic `saveMessage`.
+```text
+prepareTelegramUserMessageInbound → InboundEnvelope
+createTelegramInboundPort({ pg }).ingest(envelope)
+```
 
 ### OutboundPort ([#69](https://github.com/skepsik/utlas-ts/issues/69))
 
-Единый egress наружу: **wire + persist по policy** в одном вызове. Не `BotEgress`, не `TurnEgress`, не domain `Utterance`.
+Единый egress **наружу**: отправка в чат и (по политике) запись исходящего в историю — один вызов. Не отдельные «BotEgress» / domain `Utterance`.
 
 ```ts
 type ConversationOutboundItem =
@@ -104,11 +98,11 @@ type OutboundPort = {
 };
 ```
 
-Wire-impl — в подпапке мессенджера ([Telegram](./telegram.md) § Egress).
+Wire (HTML, chunking, `sendLocation`) — в [Telegram § Egress](./telegram.md#egress).
 
 ### OutboundContext ([#89](https://github.com/skepsik/utlas-ts/issues/89))
 
-DTO одного `deliver`: куда слать и как persist. **Trigger** (сообщение, открывшее turn / command) и **wire reply** — разные поля.
+Контекст одного `deliver`: **куда** слать и **как** привязать persist. Сообщение, открывшее turn или команду (**trigger**), и wire-reply — **разные** поля.
 
 ```ts
 type OutboundContext = {
@@ -122,103 +116,89 @@ type OutboundContext = {
 | Поле | Смысл |
 |------|--------|
 | `conversationId` | uuid row |
-| `conversation` | snapshot для persist / prompt boundary (`OutboundConversation`) |
-| `triggerMessageId` | id trigger-сообщения; persist `anchorRef` / audit |
-| `replyToMessageId` | только wire; **по умолчанию не задаётся** |
+| `conversation` | снимок для persist и prompt boundary |
+| `triggerMessageId` | id сообщения-повода; anchor при записи исходящего |
+| `replyToMessageId` | только wire-reply; **по умолчанию не задаётся** |
 
-**Сборщики (turn):** `turn/outbound-context.ts` → `outboundContextForTurn`; preset **`replyToTrigger`** для classic answer — domain `replyTargetForTrigger` ([domain](../domain.md) § Outbound reply threading).
+Turn собирает context в `turn/outbound-context.ts` (`outboundContextForTurn`). Классический ответ модели — preset «reply на trigger»; правило *когда* reply уместен — domain `replyTargetForTrigger` ([domain](../domain.md) § Outbound reply threading). Команды и ephemeral вне turn — `outboundContextFromTelegramMessage` (**без** `replyToMessageId`).
 
 **Три оси (не смешивать):**
 
-| Ось | Что | Где |
-|-----|-----|-----|
-| **Conversation item** | Вид для пользователя / CHAT HISTORY | `ConversationOutboundItem` |
-| **Persist policy** | История vs временный вывод | 3-й аргумент `deliver` |
-| **Observability** | `llm_calls`, `generation_failures`, `console.*` | **вне** `OutboundPort` |
+| Ось | Смысл |
+|-----|--------|
+| **Item** | Что видит пользователь (`text`, `map_pin`, …) |
+| **Persist policy** | Пишем в `messages` или только в чат (`history` / `ephemeral`) |
+| **Observability** | `llm_calls`, `generation_failures`, логи — **вне** port |
 
-**Матрица egress (v0):**
+**Куда что попадает (v0):**
 
-| Запись | Egress (чат) | `persist` | Куда |
-|--------|--------------|-----------|------|
-| Ответ модели (`shouldReply`) | да | `history` | `messages` |
-| Map pin | да | `history` | `messages` + payload |
-| Debug / LLM error (политика) | да | `ephemeral` | операторский trace |
-| UI вне turn (`/settings`, …) | да | `ephemeral` | подтверждение |
-| LLM invoke audit | нет | — | `llm_calls` |
-| Generation incident | по политике | `ephemeral` или нет | `generation_failures` (**всегда**) |
+| Событие | В чат | В `messages` | Ещё |
+|---------|-------|--------------|-----|
+| Ответ модели (`shouldReply`) | да | да | — |
+| Map pin | да | да | payload pin |
+| Debug / ошибка LLM | по политике | нет (`ephemeral`) | — |
+| `/settings`, `/forget`, пустой `/ask` | да | нет | — |
+| Invoke LLM | нет | нет | `llm_calls` |
+| Сбой generation | по политике | нет | `generation_failures` всегда |
 
-**Reject:** `send`/`push` как имя порта; `log` как `kind`; склейка policy внутри port impl по `debugMode`.
+**Reject:** имена `send`/`push`; `log` как вид item; смешивание debug-политики внутри port impl.
 
 ### Generation failures ([#76](https://github.com/skepsik/utlas-ts/issues/76))
 
-Единая обработка ошибок generation: **durable audit** + **ephemeral egress** из `handleGenerationFailure` (`turn/handle-generation-failure.ts`).
+Любой сбой generation в turn проходит через один handler: лог в консоль, **всегда** запись в `generation_failures`, опционально короткий текст в чат (`ephemeral`). Invoke-аудит — отдельно в `llm_calls`; это не substitute.
 
-```text
-fail generation → console.error → logGenerationFailure (PG, всегда)
-  → failureEgressText → optional OutboundPort.deliver(..., ephemeral)
-```
-
-| Store | Роль |
-|-------|------|
-| **`llm_calls`** | invoke audit |
-| **`generation_failures`** | turn incident: фаза, `error_text`, `trigger_message_id` |
-
-Фазы: `llm` | `tool` | `egress` | `settings` | `other`. Ephemeral egress: `debugMode` on → полный trace; off → короткий текст только для `llm`, иначе тишина.
+Фазы incident: `llm`, `tool`, `egress`, `settings`, `other`. В debug-режиме чата — полный trace ошибки; иначе пользователю виден только короткий текст при сбое LLM, остальные фазы — тишина.
 
 Schema: [storage-mapping](../storage-mapping.md) § `generation_failures`.
 
-### Слой / pipeline / порт
+### Слой vs pipeline vs port
 
 | Уровень | Вход | Выход |
 |---------|------|--------|
-| **Слой transport** | ingress | egress |
-| **Шаг pipeline** (orchestrator YAML) | `ingress` | `deliver` |
-| **Метод порта** | **`ingest`** | **`deliver`** |
+| Слой transport | ingress | egress |
+| Шаг orchestrator (YAML) | `ingress` | `deliver` |
+| Метод port | `ingest` | `deliver` |
 
-`StepRegistry` — orchestrator-step `"deliver"` (stub [#58](https://github.com/skepsik/utlas-ts/issues/58)).
+Шаг `"deliver"` в orchestrator — stub ([#58](https://github.com/skepsik/utlas-ts/issues/58)); runtime уже ходит в тот же `OutboundPort`.
 
-### Transport
+### Transport (lifecycle)
 
 ```ts
 Transport { type: TransportTag; start(): Promise<void>; stop(): Promise<void> }
 ```
 
-Composition root: factory в registry (`main.ts` → `TransportRegistry.register`).
+Регистрация в `TransportRegistry` из composition root.
 
-### TurnQualification (`transport/turn-qualification.ts`)
+### TurnQualification
 
-Boundary type для qualifying — **не** domain entity:
+Результат qualifying на границе transport — **не** domain entity:
 
 ```ts
 | { qualifies: true; via: "private" | "mention" | "reply_to_bot" }
 | { qualifies: false; reason: "not_for_bot" | "bot_off" | "command" }
 ```
 
-Реализация для Telegram — [telegram](./telegram.md) § Qualifying. `bot_off` в type зарезервирован; **`bot_enabled` проверяется в `runTurn`**.
+Правила для Telegram — [telegram § Qualifying](./telegram.md#qualifying). Вариант `bot_off` в type зарезервирован; фактически «бот выключен» проверяется в `runTurn`, не в trigger.
 
 ---
 
 ## Transport tag на boundary
 
-Transport tag — conversation scope, не utterance. Persist ingress и `TurnRequest` несут tag; prompt — `ctx.transport`. **Не поле `MessageRef`.** [#33](https://github.com/skepsik/utlas-ts/issues/33). Hub: [domain](../domain.md) § Transport tag.
+Тег transport — scope **разговора**, не utterance. Persist ingress и `TurnRequest` несут tag; в prompt — `ctx.transport`. **Не поле `MessageRef`.** [#33](https://github.com/skepsik/utlas-ts/issues/33). Hub: [domain](../domain.md) § Transport tag.
 
 ---
 
 ## Стык с turn
 
-```ts
-TurnRequest.fromMessage({ anchor, membershipInfo, outbound, services, supersedeMaxGapMs, transport })
-TurnRequest.fromAsk({ anchor, text, membershipInfo, outbound, services, supersedeMaxGapMs, transport })
-// request.arity === membershipInfo.dialogArity
-```
+Transport после ingress передаёт в `runTurn` anchor (`MessageRef`), `membershipInfo` (effective arity чата), порты ingress/egress и transport tag. `request.arity` совпадает с `membershipInfo.dialogArity`. Turn **не** импортирует SDK мессенджера.
 
-`membershipInfo` — с transport boundary **после** ingress (см. [Telegram](./telegram.md)). Turn **не** импортирует messenger SDK. Egress только через **`OutboundPort`** на request.
+`/ask` с текстом — тот же ingress, но **без** qualifying; отдельный pipeline не нужен.
 
 ---
 
 ## Enrichment
 
-**v0:** `runEnrichment` в `runTurn`, не ingress transform. Ingress transform chain — **Later**.
+**v0:** обогащение контекста — hook внутри `runTurn`, не до persist. Цепочка «enrichment → capture» на ingress — **Later**.
 
 ---
 
@@ -226,11 +206,11 @@ TurnRequest.fromAsk({ anchor, text, membershipInfo, outbound, services, supersed
 
 | | Transport | Clients |
 |---|-----------|------------|
-| Назначение | Messengers: ingress / egress | Внешние API (Obsidian, Jira, …) |
+| Назначение | Messengers: in/out | Внешние API (Obsidian, Jira, …) |
 | Registry | `TransportRegistry` | `ClientRegistry` |
-| Domain | `MessageRef` in/out | bindings, orchestrator steps |
+| Domain | `MessageRef` | bindings, orchestrator steps |
 
-**Git deploy** — `infra/`, не connector.
+Deploy и infra — не connector.
 
 ---
 
@@ -238,8 +218,8 @@ TurnRequest.fromAsk({ anchor, text, membershipInfo, outbound, services, supersed
 
 | Тема | Суть |
 |------|------|
-| `bot_off` в TurnQualification | Перенести check из `runTurn` в trigger или убрать из union |
-| ConversationWireStore ([#99](https://github.com/skepsik/utlas-ts/issues/99)) | Симметрия ensure ingress/egress; interim — [Telegram](./telegram.md) |
+| `bot_off` в TurnQualification | Перенести проверку «бот выключен» в trigger или убрать вариант из type |
+| ConversationWireStore ([#99](https://github.com/skepsik/utlas-ts/issues/99)) | Единый ensure на ingress и egress; сейчас — раздельные helpers в [Telegram](./telegram.md) |
 
 ---
 
@@ -247,7 +227,7 @@ TurnRequest.fromAsk({ anchor, text, membershipInfo, outbound, services, supersed
 
 | Тема | Суть |
 |------|------|
-| Ingress transform | STT / enrichment до `inbound.ingest` |
-| Second transport | Шаблон подпапки + `TransportRegistry` |
+| Ingress transform | STT / enrichment до `ingest` |
+| Second transport | Шаблон подпапки + registry |
 | Ingress enrichment hook | Цепочка до capture, не в turn |
 | Multi-bot qualifying | Self binding per [tenancy](../tenancy.md) |

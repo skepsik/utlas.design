@@ -1,140 +1,182 @@
 # Transport — Telegram
 
-Telegram v0: grammY под `transport/telegram/`. Общие порты и термины — [transport](./index.md).
+Единственная реализация transport v0. Общие порты и термины — [transport](./index.md).
+
+grammY и подписка на update'ы — только здесь. Turn видит uuid, `MessageRef` и порты; chat id и thread id — только на этой границе.
 
 ---
 
-## Conversation identity ([#81](https://github.com/skepsik/utlas-ts/issues/81))
+## Identity разговора ([#81](https://github.com/skepsik/utlas-ts/issues/81))
 
-**Атом разговора** — `conversations.id` (uuid). Domain / turn / storage видят только uuid в `MessageRef.conversationId`. Transport склеивает wire key в `external_key`; decode — только здесь.
+**Атом разговора** в PG — `conversations.id` (uuid). Domain, turn и storage везде опираются на uuid в `MessageRef.conversationId`. Wire-идентификатор чата (и опционально forum-topic) хранится в `external_key`; обратный маппинг uuid → куда слать ответ — тоже только в transport.
 
-### `external_key`
+### Формат `external_key`
 
 | Случай | `external_key` | Пример |
 |--------|----------------|--------|
-| Любой чат без forum thread | `tg:{chat_id}` | `tg:-100123` |
+| Чат без forum-thread | `tg:{chat_id}` | `tg:-100123` |
 | Forum topic (не General) | `tg:{chat_id}:t{thread_id}` | `tg:-100123:t42` |
-| General (`message_thread_id === 1`) | без суффикса | `tg:-100123` |
+| General (`message_thread_id === 1`) | как чат без thread | `tg:-100123` |
 
-Encode: `encodeTelegramConversationKey`. Decode: `decodeTelegramConversationKey` → `{ chatId, messageThreadId? }`. Egress: `telegramWireTarget(pg, conversationId)`.
+При ingress из update'а: по chat id и thread строим ключ, находим или создаём row в `conversations`, при необходимости обновляем заголовок чата ([#92](https://github.com/skepsik/utlas-ts/issues/92)).
 
-`ensureTelegramConversation(pg, chat, threadId?)` — encode + title patch + `ensureConversation` ([#92](https://github.com/skepsik/utlas-ts/issues/92)); interim до [#99](https://github.com/skepsik/utlas-ts/issues/99).
+При egress: по uuid читаем ключ и получаем `chat_id` + `message_thread_id` для API. Позже — единый `ConversationWireStore` ([#99](https://github.com/skepsik/utlas-ts/issues/99)) вместо разрозненных helpers.
 
-Forum topic = **отдельная** row (свой uuid, watermark, settings). `member_count` / `dialog_arity` — denorm на chat-level и topic rows в PG (`writeTelegramMemberCount`). Qualifying / turn read — **chat-level** `telegramChatMembershipInfo` → `MembershipInfo.dialogArity`.
+**Forum topic** — отдельный разговор: свой uuid, watermark и settings. Это не «метаданные» одного чата, а самостоятельная row.
+
+**Число участников и arity** денормализуются на row чата и на row каждого topic, который уже есть в PG: при join/leave или явном запросе к API счётчик пересчитывается и копируется на все связанные keys. Новый topic, появившийся после такого write, остаётся без count, пока не придёт member-event или не сработает ленивый backfill с chat-level — без лишнего API на каждое сообщение.
+
+Для qualifying и turn **всегда** берём arity **чата целиком** (chat-level), не row отдельного topic — иначе группа с темами вела бы себя как private в одной ветке.
+
+| Операция | В коде |
+|----------|--------|
+| Ключ wire ↔ chat/thread | `encodeTelegramConversationKey`, `decodeTelegramConversationKey` |
+| Row чата (ingress) | `ensureTelegramConversation` |
+| uuid → wire (egress) | `telegramWireTarget` |
+| Arity для turn | `telegramChatMembershipInfo` → `membershipInfoFromTelegramChat` |
 
 ```mermaid
 flowchart LR
   subgraph events ["grammY events"]
-    MCM["my_chat_member"]
-    NCM["new_chat_members"]
-    LCM["left_chat_member"]
+    MCM["**my_chat_member**<br/>бот добавлен в чат"]
+    NCM["**new_chat_members**<br/>участник вошёл"]
+    LCM["**left_chat_member**<br/>участник вышел"]
     MSG["message / commands"]
   end
 
-  subgraph chat_path ["message path"]
-    PREP["prepareTelegramUserMessageInbound"]
-    ING["inbound.ingest"]
+  subgraph ingress_path ["ingress"]
+    PREP["**prepareTelegramUserMessageInbound**<br/>нормализация wire"]
+    ENSURE["**ensureTelegramConversation**<br/>ключ + row"]
+    ING["**inbound.ingest**<br/>→ PG"]
   end
 
-  subgraph members ["member-events"]
-    WRT["writeTelegramMemberCount"]
-    INIT["initMemberCount"]
-    API["getChatMemberCount"]
+  subgraph members ["member_count / dialog_arity"]
+    API["**getChatMemberCount**"]
+    WRT["**writeTelegramMemberCount**"]
+    INIT["**initMemberCount**<br/>ленивый backfill"]
   end
 
   MCM --> API --> WRT
   NCM --> WRT
   LCM --> WRT
-  MSG --> PREP --> ING
+  MSG --> PREP --> ENSURE --> ING
   MSG --> INIT
+  INIT -->|"chatCount null"| API
+  INIT -->|"topic null, chat set"| WRT
 ```
 
-### Member events и `member_count`
+### События участников
 
-| Источник | Действие |
-|----------|----------|
-| `my_chat_member` | `getChatMemberCount` → `writeTelegramMemberCount` (chat + topic rows) |
-| `new_chat_members` | `+delta` от chat-level; **без API** |
-| `left_chat_member` | `−1`; **без API** |
-| `message` (turn-path) | после `inbound.ingest`: `initMemberCount` — идемпотентно по PG; **не** на `/ask` |
-| `inbound.ingest` | **не трогает** count/arity |
+| Событие Telegram | Поведение | В коде |
+|------------------|-----------|--------|
+| `my_chat_member` | Запросить число участников у API, записать на chat и все topic rows в PG | `getChatMemberCount` → `writeTelegramMemberCount` |
+| `new_chat_members` | Увеличить chat-level count на размер списка (включая ботов), размазать на topic rows; **без** API | `writeTelegramMemberCount` (+delta) |
+| `left_chat_member` | Уменьшить на 1 (включая ботов), размазать; **без** API | `writeTelegramMemberCount` (−1) |
+| `message` (turn-path) | После persist: если count ещё не был — один раз добить через API или backfill с chat; **не** на `/ask` | после `inbound.ingest` → `initMemberCount` |
+| persist ingress | Count и arity **не** меняет | `inbound.ingest` |
+| qualifying / turn | Effective arity с chat-level | `telegramChatMembershipInfo` |
 
-**`initMemberCount`** (group/supergroup, generic `message`): chat-level null → API; forum topic row null при заполненном chat → backfill без API; иначе skip.
+В группах и супергруппах на generic message-path действует ленивая инициализация: пустой chat-level → API; chat уже знает count, а topic-row пуст → копируем с chat; иначе ничего.
 
-**Не делаем:** count на каждое сообщение; `api` через ingress; hub `TelegramRuntime` ([#88](https://github.com/skepsik/utlas-ts/issues/88)).
+**Не делаем:** пересчёт на каждое сообщение; протаскивание API client через ingress; hub-классы resolver/runtime ([#88](https://github.com/skepsik/utlas-ts/issues/88)).
 
 ---
 
-## Handler flow
+## Поток обработки update ([#91](https://github.com/skepsik/utlas-ts/issues/91))
 
-Wiring в `createTelegramBot` — `ListenerDeps { inbound, outbound, … }`, без hub-класса ([#91](https://github.com/skepsik/utlas-ts/issues/91)).
+Один composition root подписывает grammY: member-events, правки сообщений, команды и generic message — отдельные ветки, без общего hub-класса.
 
 ```mermaid
 flowchart TB
   UPD["grammY update"]
-  UPD --> MCM["member-events"]
-  UPD --> EDIT["edited_message"]
-  UPD --> CMD["/ask /forget /settings"]
-  UPD --> MSG["generic message"]
+  UPD --> MCM["**member-events**<br/>my_chat_member / join / leave"]
+  UPD --> EDIT["**edited_message**<br/>updateMessageText"]
+  UPD --> CMD["**commands**<br/>/ask /forget /settings"]
+  UPD --> MSG["**message**<br/>TelegramMessageTurnHandler"]
 
-  MSG --> ING["prepare → inbound.ingest"]
+  MSG --> PREP["prepareTelegramUserMessageInbound"]
+  PREP --> ING["inbound.ingest"]
   ING --> INIT["initMemberCount"]
-  INIT --> Q["qualify"]
+  INIT --> Q["TelegramTurnQualifier.qualify"]
   Q --> TURN["runTurn"]
 
-  CMD --> ASK["/ask"]
-  ASK -->|"text"| TURN
-  ASK -->|"empty"| EPH["ephemeral deliver"]
+  CMD --> ASK["handleAskCommand"]
+  ASK -->|"текст"| PREP2["prepare → ingest"] --> TURN
+  ASK -->|"пусто"| EPH["deliverEphemeralFromMessage"]
+
+  CMD --> FORGET["handleForgetCommand"]
+  CMD --> SET["handleSettingsCommand"]
+  FORGET --> EPH
+  SET --> EPH
 ```
 
-`api` на message path **не** протаскивается. **Persist до gate** — сообщения без qualifying тоже в PG.
+Сообщения **сохраняются до qualifying** — то, что не адресовано боту, тоже остаётся в PG.
 
-Generic `message` пропускает `message.text?.startsWith("/")` — interim ([#102](https://github.com/skepsik/utlas-ts/issues/102)).
+На message-path API client **не** тащится: запросы к Telegram только в member-events и admin-check для `/settings`.
+
+Строки, начинающиеся с `/`, generic handler пока отбрасывает эвристикой `startsWith` — ложные срабатывания возможны ([#102](https://github.com/skepsik/utlas-ts/issues/102)).
 
 ### Commands ([#90](https://github.com/skepsik/utlas-ts/issues/90))
 
-| Команда | Ingress | `runTurn` | Egress |
-|---------|---------|-----------|--------|
-| `/settings` | ensure row only | нет | `ephemeral` |
-| `/forget` | нет | нет | `ephemeral` после watermark |
-| `/ask` (пустой) | нет | нет | `ephemeral` |
-| `/ask` (текст) | `inbound.ingest` | да (`fromAsk`) | `history` через turn |
-| generic `message` | да | если qualify | `history` через turn |
+| Команда | Ingress | Turn | Egress |
+|---------|---------|------|--------|
+| `/settings` | `ensureTelegramConversation` | нет | `deliverEphemeralFromMessage` |
+| `/forget` | нет (`resetConversationContext`) | нет | `deliverEphemeralFromMessage` |
+| `/ask` пустой | нет | нет | `deliverEphemeralFromMessage` |
+| `/ask` с текстом | `prepareTelegramUserMessageInbound` → `inbound.ingest` | `TurnRequest.fromAsk` | history через turn |
+| generic `message` | `prepareTelegramUserMessageInbound` → `inbound.ingest` | `TurnRequest.fromMessage` если qualify | history через turn |
 
-`/ask` **вне** generic handler и **обходит** qualifying.
+`/ask` зарегистрирован отдельно и **обходит** qualifying.
 
 ### Ingress
 
-`prepareTelegramUserMessageInbound` → `ensureTelegramConversation` + `tgMessageToRef` + quote/forward → `inbound.ingest` (см. [InboundContext](./index.md) на hub-странице).
+Wire-сообщение разбирается в `MessageRef` (текст и caption, quote, forward, reply, ссылки, отправитель, `sentAt`). Row чата ensure'ится по ключу; затем один вызов `InboundPort.ingest`. Count участников на этом шаге не трогается. Контракт context — [InboundContext](./index.md#inboundcontext-110).
+
+```text
+prepareTelegramUserMessageInbound
+  → ensureTelegramConversation + tgMessageToRef (+ parseQuote / parseForward)
+  → inbound.ingest
+```
 
 ### Qualifying
 
-`TelegramTurnQualifier.qualify(message, dialogArity)`; arity из `MembershipInfo`, не сырой `chat.type`.
+Решение «отвечать или нет» — до `runTurn`. Effective arity (**private** vs **group**) берётся из PG и типа чата, не из сырого `chat.type` без count.
 
-| Условие | `via` |
-|---------|-------|
-| `private` arity | `private` |
-| group + reply на бота | `reply_to_bot` |
-| group + `@mention` | `mention` |
-| group, иначе | `not_for_bot` |
+`TelegramTurnQualifier.qualify` (thin: `qualifiesForTurn`, `shouldRespondInGroup`).
+
+| Ситуация | Результат |
+|----------|-----------|
+| Private или duo (arity private) | любое сообщение — к боту |
+| Group + reply на сообщение бота | к боту |
+| Group + @mention бота | к боту |
+| Group, иначе | не к боту (`not_for_bot`) |
 
 ### Egress
 
-`createTelegramOutboundPort`: `telegramWireTarget`, HTML (`markdownToTelegramHtml`), chunking ([#101](https://github.com/skepsik/utlas-ts/issues/101)), `replyToMessageId` только на первый chunk.
+Исходящий текст — HTML после markdown; при ошибке API — plain fallback. Длинный текст режется на части по лимиту Telegram ([#101](https://github.com/skepsik/utlas-ts/issues/101)); wire-reply только на **первый** chunk, в историю пишется полное тело с id первого wire-сообщения.
 
-Ephemeral вне turn: `outboundContextFromTelegramMessage` (**без** `replyToMessageId`).
+Команды и служебные ответы вне turn — только в чат (`ephemeral`), без wire-reply на trigger.
 
-**Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#107](https://github.com/skepsik/utlas-ts/issues/107)): `sendLocation` + inline Google/Yandex — [tools/composite](../tools/composite.md).
+```text
+createTelegramOutboundPort.deliver
+  ← telegramWireTarget (uuid → chat_id + thread)
+  ← markdownToTelegramHtml; sendTextInChunks (TELEGRAM_MAX_TEXT_LENGTH)
+
+ephemeral вне turn: outboundContextFromTelegramMessage → deliverEphemeralFromMessage
+turn: outboundContextForTurn (preset replyToTrigger)
+```
+
+**Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#107](https://github.com/skepsik/utlas-ts/issues/107)): `sendLocation` + `telegramMapPinReplyMarkup` (Google/Яндекс); runner — `OutboundPort.deliver` — [tools/composite](../tools/composite.md).
 
 ### Message lifecycle: edit / delete
 
-| Событие          | v0                              | Политика                                                  |
-| ---------------- | ------------------------------- | --------------------------------------------------------- |
-| **Edit**         | `edited_message`                | `updateMessageText` — только `text`; **без** `runTurn`    |
-| **Edit → пусто** | приходит                        | Канон: `text = ""`; **сейчас skip** в `edited-message.ts` |
-| **Delete**       | Bot API не шлёт в private/group | Row **не удалять** — last-known snapshot                  |
+| Событие | v0 | Политика | В коде |
+|---------|-----|----------|--------|
+| **Правка** | `edited_message` | Обновить только `messages.text`; quote/forward/reply/`sentAt` не трогать; **без** turn | `registerEditedMessage` → `updateMessageText` |
+| **Правка → пусто** | `edited_message` | Канон: очистить текст (`""`); **сейчас** handler пропускает | `edited-message` handler |
+| **Удаление** | Bot API не шлёт в private/group | Row **не удалять** — last-known snapshot | — |
 
-Hard `DELETE` из `messages` — **не делаем**. Regen при edit — turn (**Later**).
+Hard `DELETE` из `messages` — **не делаем**. Перегенерация ответа при edit — turn (**Later**).
 
 ---
 
@@ -142,7 +184,7 @@ Hard `DELETE` из `messages` — **не делаем**. Regen при edit — t
 
 | Тема | Суть |
 |------|------|
-| Command skip heuristic ([#102](https://github.com/skepsik/utlas-ts/issues/102)) | `startsWith("/")` vs `bot_command` entity в generic `message` |
+| Command skip ([#102](https://github.com/skepsik/utlas-ts/issues/102)) | Отличать команды от текста с `/` через entity `bot_command`, не `startsWith` |
 
 ---
 
@@ -150,6 +192,6 @@ Hard `DELETE` из `messages` — **не делаем**. Regen при edit — t
 
 | Тема | Суть |
 |------|------|
-| Empty edit → `text=""` | Канон очистки контента; сейчас skip в handler |
-| Welcome on join ([#87](https://github.com/skepsik/utlas-ts/issues/87)) | Ephemeral при `new_chat_members`, вне turn |
+| Пустая правка → `text=""` | Очистка контента в PG, не skip |
+| Welcome on join ([#87](https://github.com/skepsik/utlas-ts/issues/87)) | Ephemeral при входе участника, вне turn |
 | LLM regen on edit | Turn, не transport |
