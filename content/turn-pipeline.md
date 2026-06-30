@@ -1,6 +1,6 @@
 # Turn pipeline
 
-**Turn / pipeline** — скобка конкурентности (`turn.start` / `turn.stop`), сценарий шагов orchestrator'а и default path user→bot. Transport ([transport](./transport.md)) вызывает `runTurn`; domain ([domain](./domain.md)) agnostic.
+**Turn / pipeline** — скобка конкурентности (`turn.start` / `turn.stop`), сценарий шагов orchestrator'а и default path user→bot. Transport ([transport](./transport/)) вызывает `runTurn`; domain ([domain](./domain.md)) agnostic.
 
 См. также: [envelope](./envelope/index.md), [turn-prompt](./turn-prompt.md), [llm-jobs](./llm-jobs.md).
 
@@ -41,7 +41,7 @@ runTurn:
   shouldDiscardOnSend → clearActiveAfterSend   ← stop при send, не после LLM
 ```
 
-Failure routing — [transport](./transport.md) § Generation failures ([#76](https://github.com/skepsik/utlas-ts/issues/76)).
+Failure routing — [transport](./transport/) § Generation failures ([#76](https://github.com/skepsik/utlas-ts/issues/76)).
 
 | Аспект | Сейчас (v0) | Цель |
 |--------|-------------|------|

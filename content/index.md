@@ -13,15 +13,21 @@
 | [semantic-thread](./semantic-thread.md) | SemanticThread: Selector → Heuristic → Builder |
 | [storage-mapping](./storage-mapping.md) | MessageRef ↔ Postgres |
 
-## Turn & transport
+## Turn
 
 | Страница | Тема |
 | -------- | ---- |
 | [turn-pipeline](./turn-pipeline.md) | Turn start/stop, pipeline, shouldReply |
-| [transport](./transport.md) | Ingress, qualifying, egress |
 | [turn-prompt](./turn-prompt.md) | Prompt composer, PG blocks, envelope |
 | [llm-jobs](./llm-jobs.md) | **(концепт)** answer vs inference jobs, profile + strategy |
 | [llm-execution](./llm-execution.md) | Strategy (есть) + execution policy per step (пока нет) |
+
+## Transport
+
+| Страница | Тема |
+| -------- | ---- |
+| [transport](./transport/) | Ingress, qualifying, egress, ports |
+| [telegram](./transport/telegram.md) | Telegram v0: identity, handlers, wire |
 
 ## LLM answer envelope
 

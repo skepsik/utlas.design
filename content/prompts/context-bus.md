@@ -35,7 +35,7 @@ Telegram Bot API **не доставляет** сообщения bot→bot. В 
 |--------|---------------------|
 | User message | каждый бот, кто получил update (dedup) |
 | Own bot reply | автор ответа — обязательно |
-| Edit message | как edit path в [transport](../transport.md) § Message lifecycle |
+| Edit message | как edit path в [transport/telegram](../transport/telegram) § Message lifecycle |
 
 ### Read path
 

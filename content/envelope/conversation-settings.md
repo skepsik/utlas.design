@@ -27,7 +27,7 @@ type ConversationRecord = {
 
 `dialogArity` **не** в `ConversationRecord` — effective arity на turn boundary: `TurnRequest.membershipInfo.dialogArity` ([domain](../domain.md) § MembershipInfo).
 
-`botEnabled`, `debugMode`, `contextLimitOverride` — transport [`/settings`](../transport.md); в answer **не** входят.
+`botEnabled`, `debugMode`, `contextLimitOverride` — transport [`/settings`](../transport/telegram#commands); в answer **не** входят.
 
 **Wire (answer):**
 

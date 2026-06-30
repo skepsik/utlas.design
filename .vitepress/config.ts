@@ -23,13 +23,19 @@ export default defineConfig({
         ],
       },
       {
-        text: "Turn & transport",
+        text: "Turn",
         items: [
           { text: "Turn pipeline", link: "/turn-pipeline" },
-          { text: "Transport", link: "/transport" },
           { text: "Turn prompt", link: "/turn-prompt" },
           { text: "LLM jobs (концепт)", link: "/llm-jobs" },
           { text: "LLM execution", link: "/llm-execution" },
+        ],
+      },
+      {
+        text: "Transport",
+        items: [
+          { text: "Overview", link: "/transport/" },
+          { text: "Telegram", link: "/transport/telegram" },
         ],
       },
       {

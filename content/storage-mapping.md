@@ -57,7 +57,7 @@ Impl read port: `PostgresContextRead` (work [#26](https://github.com/skepsik/utl
 
 ## `generation_failures` ([#78](https://github.com/skepsik/utlas-ts/issues/78))
 
-Turn/generation **incidents** — не substitute для `llm_calls` (invoke audit). Политика egress — [transport](./transport.md) § Generation failures.
+Turn/generation **incidents** — не substitute для `llm_calls` (invoke audit). Политика egress — [transport](./transport/) § Generation failures.
 
 | Поле (TS / domain) | PG | Примечание |
 |--------------------|-----|------------|

@@ -2,7 +2,7 @@
 
 **Канон:** атомарные instruments в registry; модель собирает цепочки через **`composite`** в `toolCalls` или одиночные вызовы. Координаты после geocode **не** пишет модель — backend мапит по зарегистрированным рёбрам.
 
-См. также: [tools](./index.md), [geocode](./geocode.md), [envelope](../envelope/index.md), [native-tool-calls](./native-tool-calls.md), [transport](../transport.md).
+См. также: [tools](./index.md), [geocode](./geocode.md), [envelope](../envelope/index.md), [native-tool-calls](./native-tool-calls.md), [transport](../transport/).
 
 **Этап 2:** [#67](https://github.com/skepsik/utlas-ts/issues/67) (`show_map_pin` + loop). **Этап 2b:** [#68](https://github.com/skepsik/utlas-ts/issues/68) (`ToolRunResult` + compose block). **Этап 3:** [#38](https://github.com/skepsik/utlas-ts/issues/38) (geocode + composite).
 
