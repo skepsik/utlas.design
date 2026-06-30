@@ -116,7 +116,7 @@ type OutboundContext = {
 | Поле | Смысл |
 |------|--------|
 | `conversationId` | uuid row |
-| `conversation` | снимок для persist и prompt boundary |
+| `conversation` | снимок для persist и prompt boundary; тип `OutboundConversation` — `apps/runtime/src/transport/types.ts` ([#97](https://github.com/skepsik/utlas-ts/issues/97)), не storage |
 | `triggerMessageId` | id сообщения-повода; anchor при записи исходящего |
 | `replyToMessageId` | только wire-reply; **по умолчанию не задаётся** |
 
@@ -186,6 +186,12 @@ Transport { type: TransportTag; start(): Promise<void>; stop(): Promise<void> }
 
 Тег transport — scope **разговора**, не utterance. Persist ingress и `TurnRequest` несут tag; в prompt — `ctx.transport`. **Не поле `MessageRef`.** [#33](https://github.com/skepsik/utlas-ts/issues/33). Hub: [domain](../domain.md) § Transport tag.
 
+Канон значений — `TransportTag` в domain (`TransportTag.telegram`, …). Composition root: `createConversationWireStore(pg, TransportTag.telegram)`; handlers — `store.transport`, без дублирования литерала на call sites ([#98](https://github.com/skepsik/utlas-ts/issues/98)).
+
+### Storage boundary ([#94](https://github.com/skepsik/utlas-ts/issues/94))
+
+Transport **не** вызывает UPSERT `conversations` напрямую: `ConversationWireStore` + `TelegramMembershipResolver` в handler deps. `saveMessage` / `updateMessageText` пока на `pg` + `store.transport`. Детали — [storage-mapping](../storage-mapping.md).
+
 ---
 
 ## Стык с turn
@@ -219,7 +225,6 @@ Deploy и infra — не connector.
 | Тема | Суть |
 |------|------|
 | `bot_off` в TurnQualification | Перенести проверку «бот выключен» в trigger или убрать вариант из type |
-| ConversationWireStore ([#99](https://github.com/skepsik/utlas-ts/issues/99)) | Единый ensure на ingress и egress; сейчас — раздельные helpers в [Telegram](./telegram.md) |
 
 ---
 

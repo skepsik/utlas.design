@@ -71,7 +71,7 @@ MessageRef {
 
 Transport — **свойство conversation**, не utterance. **Не denorm на `MessageRef`:** ingress передаёт tag в `saveMessage({ transport })` и в `TurnRequest.fromMessage({ transport })`; compose — `ctx.transport`.
 
-**Identity:** внутри domain / turn — `conversationId` = uuid (`conversations.id`). На transport/storage boundary — `(transport, external_key)` → resolve/create row ([#81](https://github.com/skepsik/utlas-ts/issues/81)). Transport tag refactor — [#33](https://github.com/skepsik/utlas-ts/issues/33) ✅.
+**Identity:** внутри domain / turn — `conversationId` = uuid (`conversations.id`). На transport/storage boundary — `(transport, external_key)` → resolve/create row ([#81](https://github.com/skepsik/utlas-ts/issues/81)). Канон tag — `TransportTag` в `transport-tag.ts` ([#98](https://github.com/skepsik/utlas-ts/issues/98)); transport refactor — [#33](https://github.com/skepsik/utlas-ts/issues/33) ✅.
 
 ### DialogArity и MembershipInfo
 
@@ -89,9 +89,9 @@ MembershipInfo.create(wireArity, memberCount)
 // memberCount === null → dialogArity === "group" (пока count неизвестен)
 ```
 
-**Transport read (qualifying / turn):** `telegramChatMembershipInfo(pg, chat)` — всегда **chat-level** `member_count` (`tg:{chatId}` без `:t`) + `chat.type` → `MembershipInfo`. Не читает topic-row и не `chat.type` без count.
+**Transport read (qualifying / turn):** `TelegramMembershipResolver.forChat(chat)` — всегда **chat-level** `member_count` (`tg:{chatId}` без `:t`) + `chat.type` → `MembershipInfo`. Не читает topic-row и не `chat.type` без count. Member events с уже известным count — `TelegramMembershipResolver.fromChat`.
 
-**PG write (denorm):** `updateConversationMembershipInfoByKeys` — `member_count` + effective `dialog_arity` на перечисленные `external_key` (chat-level + все topic rows, существовавшие на момент write). Источник — `members.ts` / `membershipInfoFromTelegramChat`.
+**PG write (denorm):** `ConversationWireStore.syncMembership` / `updateConversationMembershipInfoByKeys` — `member_count` + effective `dialog_arity` на перечисленные `external_key` (chat-level + все topic rows, существовавшие на момент write). Источник — `members.ts` / `membershipInfoFromTelegramChat`.
 
 Topic-row с `null` до первого write после появления строки — норма; explorer view наследует с chat-level. Turn на topic не зависит от topic-row count.
 
@@ -150,7 +150,7 @@ TurnRequest { anchor; membershipInfo: MembershipInfo; outbound; services; supers
 // arity — getter: membershipInfo.dialogArity
 ```
 
-`membershipInfo` — из `telegramChatMembershipInfo` на transport boundary **после** `persistIngress` (и после `initMemberCount` на message path). Не из сырого `chat.type` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
+`membershipInfo` — из `TelegramMembershipResolver.forChat` на transport boundary **после** `persistIngress` (и после `initMemberCount` на message path). Не из сырого `chat.type` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
 
 v0: monolith `runTurn` + `turn-state.ts` (module-global Map, supersede). Целевая механика — [turn-pipeline](./turn-pipeline.md).
 

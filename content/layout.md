@@ -37,7 +37,7 @@ utlas-ts/
   packages/core/
     src/
       domain/           MessageRef, SemanticThread, ports, services
-      storage/          Postgres, selectors, watermark
+      storage/          Postgres, conversations WireStore, context-read, audit
       llm/              router, adapters, prompt/, answer, policy
       utils/
     test/
@@ -79,6 +79,6 @@ utlas-ts/
 | **Transport** | ingress, qualifying, **`OutboundPort`** | `apps/runtime/src/transport/` — [transport](./transport/) |
 | **Clients** | wire + auth; `ClientRegistry` | `apps/runtime/src/clients/` |
 | **Tools** | `sync/` (vendor↔backend), `runners/` (instruments) | `apps/runtime/src/tools/` |
-| **Storage** | PG rows, selectors, watermark | `packages/core/src/storage/` — [storage-mapping](./storage-mapping.md) |
+| **Storage** | PG rows, `ConversationWireStore`, selectors, watermark | `packages/core/src/storage/` — [storage-mapping](./storage-mapping.md) |
 | **LLM** | router, adapters, prompt composer, answer | `packages/core/src/llm/`; runtime resolvers — `apps/runtime/src/llm/` |
 | **Tenancy** | owner, bot binding, secrets | [tenancy](./tenancy.md) — later |

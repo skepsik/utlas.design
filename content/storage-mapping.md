@@ -4,6 +4,98 @@ MessageRef ↔ Postgres. Domain types — [domain](./domain.md). Conversation id
 
 ---
 
+## Модули и subpath exports ([#94](https://github.com/skepsik/utlas-ts/issues/94))
+
+Физическая укладка = npm subpath. Barrel `@utlas/core/storage` — backward-compat superset; новый код предпочитает subpath.
+
+| Subpath | Папка | Ответственность |
+|---------|-------|-----------------|
+| `@utlas/core/storage/messages` | `messages/` | `saveMessage`, `updateMessageText`, `getMessage` |
+| `@utlas/core/storage/conversations` | `conversations/` | resolve, record, writes, patch, WireStore |
+| `@utlas/core/storage/audit` | `audit/` | `logLlmCall`, `logGenerationFailure` |
+| `@utlas/core/storage/llm-config` | `llm-config/` | execution strategy port, prompt blocks, seeds (subpath) |
+| `@utlas/core/storage/context-read` | `context-read/` | `PostgresContextRead`, selectors, watermark |
+| `@utlas/core/storage/postgres` | `postgres/` | client, Drizzle schema (tests / internal) |
+
+`patchConversationByExternalKey` и прочие internal UPSERT primitives — через `conversations/` subpath, не обязательны в main barrel.
+
+---
+
+## ConversationWireStore ([#98](https://github.com/skepsik/utlas-ts/issues/98), [#99](https://github.com/skepsik/utlas-ts/issues/99))
+
+Binding-scoped фасад: `transport` инжектится один раз в `createConversationWireStore(pg, transport)`; методы без повтора tag на call site.
+
+| Метод | Делегат |
+|-------|---------|
+| `ensure` | `ensureConversation` |
+| `getMemberCount` | `getMemberCount` |
+| `syncMembership` | `updateConversationMembershipInfoByKeys` |
+| `patchSettings` | `patchConversationByExternalKey` |
+| `resetContext` | `resetConversationContext` |
+| `getRecord` | `getConversationRecord` |
+| `getExternalKey` | `getConversationExternalKey` (без `transport` в ответе) |
+
+**Transport boundary:** handlers держат `ConversationWireStore` + `TelegramMembershipResolver` в deps ([transport/telegram](./transport/telegram.md)); не hub storage и не прямые UPSERT в listeners. Composition root создаёт один store на transport instance.
+
+Low-level `ensureConversation` / `updateBotEnabled` / … остаются в barrel для turn paths и тестов; transport-код v0 — через store.
+
+**Later:** `saveMessage` через store — optional ([#99](https://github.com/skepsik/utlas-ts/issues/99) out of scope).
+
+---
+
+## OutboundConversation ([#97](https://github.com/skepsik/utlas-ts/issues/97))
+
+Egress DTO для одного `OutboundPort.deliver` — **не** PG mapping. Тип и `outboundConversation()` — `apps/runtime/src/transport/types.ts`, `outbound-conversation.ts`; не в storage.
+
+См. [transport](./transport/index.md) § OutboundContext.
+
+---
+
+## Read paths
+
+| Path | API | Когда |
+|------|-----|-------|
+| Raw row by transport + keys | `getMessage(pg, transport, conversationId, messageId)` | edits, point lookups |
+| Context assembly | `PostgresContextRead` (`MessageReadPort`) + watermark (`getContextResetFloor`) | turn prompt, semantic thread |
+
+`getMessage` не применяет watermark; `PostgresContextRead` — floor и selectors. Оба — `@utlas/core/storage`.
+
+---
+
+## Multi-transport
+
+Wire identity: `(transport, external_key)` — `UNIQUE` в PG. Канон значений tag — `TransportTag` в `packages/core/src/domain/model/transport-tag.ts` (`TransportTag.telegram`, …). Factory: `createConversationWireStore(pg, TransportTag.telegram)` — не локальные литералы на call sites.
+
+**Не сейчас:** несколько bot instance на одном transport tag — [tenancy](./tenancy.md).
+
+---
+
+## Типы conversation (терминология)
+
+Три оси — **не** вводить umbrella `ConversationSettings`:
+
+| Тип | Ось | Примеры полей |
+|-----|-----|----------------|
+| `ConversationUserSettings` | tunables (/settings, model declare) | `botEnabled`, `debugMode`, `contextLimitOverride`, `timezone` |
+| `ConversationRecord` | PG row read model | + `title`, `transport`, `memberCount`, timestamps |
+| `MembershipInfo` | arity для turn/qualify/prompt | `wireArity`, `memberCount` → `dialogArity` getter |
+
+Row meta (`title`, denorm `member_count`) — **не** «settings» в UX смысле. Split read-model без `title` на transport — follow-up, не #94.
+
+---
+
+## Class vs function
+
+| Class | Function |
+|-------|----------|
+| `ConversationWireStore`, `TelegramMembershipResolver` | codecs (`encodeTelegramConversationKey`), row mappers, DTO builders |
+| `PostgresContextRead` (port impl) | `outboundConversation()`, `patchConversationByExternalKey` |
+| `MembershipInfo` (VO с инвариантом) | thin UPSERT wrappers в `writes.ts` |
+
+DTO / Record types — **не** class. Transport class policy — [#88](https://github.com/skepsik/utlas-ts/issues/88).
+
+---
+
 ## `conversations` ([#81](https://github.com/skepsik/utlas-ts/issues/81))
 
 Атом разговора и per-conversation settings. PK — `id uuid`; wire identity — `(transport, external_key)`.
@@ -19,10 +111,12 @@ MessageRef ↔ Postgres. Domain types — [domain](./domain.md). Conversation id
 | `botEnabled`, `debugMode`, `contextLimitOverride`, `timezone`, `title` | same | см. [conversation-settings](./envelope/conversation-settings.md) |
 | — | `context_reset_after_message_id`, `context_reset_at` | `/forget` watermark |
 
-Resolve/create: `ensureConversation(pg, transport, externalKey, meta?)` → uuid.  
-Per-row read (settings, prompt): `getConversationRecord(pg, conversationId)` — **без** `dialogArity`; turn/qualify берут `MembershipInfo` с transport boundary.
+Resolve/create (low-level): `ensureConversation(pg, transport, externalKey, meta?)` → uuid.  
+Transport v0: `ConversationWireStore.ensure(externalKey, …)` — тот же UPSERT, tag из store.
 
-Forum topic — отдельная row (`external_key` с `:t{thread_id}`). **Write:** `updateConversationMembershipInfoByKeys` на chat-level + все topic keys в PG на момент write; topic, созданный позже, может временно иметь `null` до member-event или `initMemberCount` backfill. **Turn read:** chat-level через `telegramChatMembershipInfo`, не topic-row. Explorer view `explorer_conversations` — `COALESCE` с chat-level для UI.
+Per-row read (settings, prompt): `getConversationRecord` / `store.getRecord(conversationId)` — **без** `dialogArity`; turn/qualify берут `MembershipInfo` с transport boundary.
+
+Forum topic — отдельная row (`external_key` с `:t{thread_id}`). **Write:** `store.syncMembership` / `updateConversationMembershipInfoByKeys` на chat-level + все topic keys в PG на момент write; topic, созданный позже, может временно иметь `null` до member-event или `initMemberCount` backfill. **Turn read:** chat-level через `TelegramMembershipResolver.forChat`, не topic-row. Explorer view `explorer_conversations` — `COALESCE` с chat-level для UI.
 
 ---
 

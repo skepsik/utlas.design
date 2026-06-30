@@ -20,7 +20,7 @@ grammY и подписка на update'ы — только здесь. Turn ви
 
 При ingress из update'а: по chat id и thread строим ключ, находим или создаём row в `conversations`, при необходимости обновляем заголовок чата ([#92](https://github.com/skepsik/utlas-ts/issues/92)).
 
-При egress: по uuid читаем ключ и получаем `chat_id` + `message_thread_id` для API. Позже — единый `ConversationWireStore` ([#99](https://github.com/skepsik/utlas-ts/issues/99)) вместо разрозненных helpers.
+При egress: по uuid читаем ключ через `store.getExternalKey` и получаем `chat_id` + `message_thread_id` для API (`telegramWireTarget`). Row ensure/settings — через `ConversationWireStore` в handler deps ([#98](https://github.com/skepsik/utlas-ts/issues/98), [#99](https://github.com/skepsik/utlas-ts/issues/99)).
 
 **Forum topic** — отдельный разговор: свой uuid, watermark и settings. Это не «метаданные» одного чата, а самостоятельная row.
 
@@ -31,9 +31,10 @@ grammY и подписка на update'ы — только здесь. Turn ви
 | Операция | В коде |
 |----------|--------|
 | Ключ wire ↔ chat/thread | `encodeTelegramConversationKey`, `decodeTelegramConversationKey` |
-| Row чата (ingress) | `ensureTelegramConversation` |
-| uuid → wire (egress) | `telegramWireTarget` |
-| Arity для turn | `telegramChatMembershipInfo` → `membershipInfoFromTelegramChat` |
+| Row чата (ingress) | `ensureTelegramConversation(store, …)` → `store.ensure` |
+| uuid → wire (egress) | `telegramWireTarget` → `store.getExternalKey` / `store.getRecord` |
+| Arity для turn | `TelegramMembershipResolver.forChat` → `membershipInfoFromTelegramChat` |
+| Member events write | `store.syncMembership`, `store.getMemberCount` |
 
 ```mermaid
 flowchart LR
@@ -74,7 +75,7 @@ flowchart LR
 | `left_chat_member` | Уменьшить на 1 (включая ботов), размазать; **без** API | `writeTelegramMemberCount` (−1) |
 | `message` (turn-path) | После persist: если count ещё не был — один раз добить через API или backfill с chat; **не** на `/ask` | после `inbound.ingest` → `initMemberCount` |
 | persist ingress | Count и arity **не** меняет | `inbound.ingest` |
-| qualifying / turn | Effective arity с chat-level | `telegramChatMembershipInfo` |
+| qualifying / turn | Effective arity с chat-level | `TelegramMembershipResolver.forChat` |
 
 В группах и супергруппах на generic message-path действует ленивая инициализация: пустой chat-level → API; chat уже знает count, а topic-row пуст → копируем с chat; иначе ничего.
 
