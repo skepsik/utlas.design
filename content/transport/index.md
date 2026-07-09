@@ -89,7 +89,22 @@ type ConversationOutboundItem =
 
 type OutboundPersistPolicy = "history" | "ephemeral"; // default: history
 
+type WireReceipt = {
+  messageId: string;
+  sentAt: Date;
+  anchorRef: string | null;
+  conversationId: string;
+  sender: ParticipantRef;
+  textBody: string;
+  payload?: MapPinPayload;
+};
+
 type OutboundPort = {
+  /** Messenger send; batch PG — turn flush (#117), not a third persist policy. */
+  wire(
+    item: ConversationOutboundItem,
+    ctx: OutboundContext,
+  ): Promise<WireReceipt>;
   deliver(
     item: ConversationOutboundItem,
     ctx: OutboundContext,
@@ -128,6 +143,7 @@ Turn собирает context в `turn/outbound-context.ts` (`outboundContextFor
 |-----|--------|
 | **Item** | Что видит пользователь (`text`, `map_pin`, …) |
 | **Persist policy** | Пишем в `messages` или только в чат (`history` / `ephemeral`) |
+| **Batch history** | Turn egress: `wire()` → `WireReceipt`; PG batch на `turn:finished` (#109, #117) |
 | **Observability** | `llm_calls`, `generation_failures`, логи — **вне** port |
 
 **Куда что попадает (v0):**
