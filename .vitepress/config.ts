@@ -32,6 +32,10 @@ export default defineConfig({
         ],
       },
       {
+        text: "Turn (концепт)",
+        items: [{ text: "Generator", link: "/turn/generator" }],
+      },
+      {
         text: "Transport",
         items: [
           { text: "Overview", link: "/transport/" },
