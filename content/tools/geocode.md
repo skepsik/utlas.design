@@ -11,14 +11,28 @@
 `tools/runners/geocode/` — **наш формат**; vendor JSON только в адаптерах ([#60](https://github.com/skepsik/utlas-ts/issues/60)).
 
 ```ts
+/** GeocodePlace — `@utlas/core/domain/model/geocode-place.ts` */
+type GeocodePlace = {
+  label: string;
+  at: GeoPoint;
+  address?: string;
+  kind?: string;
+};
+
+/** GeoPoint — class; create / fromUnknown — единственная сборка coords */
+```
+
+Сборка: `createGeocodePlaceAt(label, at, options?)`. Vendor-адаптеры парсят wire → `GeoPoint.fromUnknown` или `GeoPoint.create`, затем `createGeocodePlaceAt`.
+
+`PlacesPayload.places` — **тот же** `GeocodePlace[]` ([message-payload](../domain/message-payload.md)); отдельный тип не вводим.
+
+```ts
 GeocodeQuery =
   | { mode: "point"; text: string }
   | { mode: "search"; text: string; limit?: number }
   | { mode: "reverse"; lat: number; lon: number }
 
-GeocodePlace = { lat, lon, label, address?, kind?, … }
-
-GeocodeSourceSlice = { vendor, status, places[], error? }
+GeocodeSourceSlice = { vendor, status, places: GeocodePlace[]; error? }
 
 GeocodeResult = {
   query: GeocodeQuery;
@@ -52,7 +66,7 @@ Vendor = адаптер → `GeocodeResult`. Прямой `fetch`, не MCP.
 | Tool | Действие |
 |------|----------|
 | `geocode_place` | `Geocoder.resolve({ mode, text \| lat/lon })` — **только данные** |
-| `show_map_pin` | `OutboundPort.deliver` map_pin + persist `MessagePayload` — [message-payload](../domain/message-payload.md) ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#69](https://github.com/skepsik/utlas-ts/issues/69)) |
+| `show_map_pin` | `OutboundPort.deliver` map_pin + persist **`points`** — [message-payload](../domain/message-payload.md) ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#69](https://github.com/skepsik/utlas-ts/issues/69)) |
 
 `show_map_pin` в registry **только** если transport `supportsMapPin`.
 
@@ -66,7 +80,7 @@ Vendor = адаптер → `GeocodeResult`. Прямой `fetch`, не MCP.
 
 Детали, wire, память — [composite](./composite.md).
 
-Координаты в ответе модели **не trust** — только tool output / mapper на ребре `geocode_place → show_map_pin`.
+Координаты в ответе модели **не trust** — только tool output / mapper на ребре registry. Geocode → карта → persist **`places`**, не `points` с address — [message-payload](../domain/message-payload.md).
 
 ---
 

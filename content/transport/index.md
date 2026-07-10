@@ -109,7 +109,7 @@ type WireReceipt =
       sender: ParticipantRef;
       userId: string;
       textBody: "";
-      payload: MapPinPayload; // domain: payload.type === "map_pin"
+      payload: PointsPayload; // domain payload.type === "points"
     };
 
 type OutboundPort = {
@@ -164,7 +164,7 @@ Turn собирает context в `turn/outbound-context.ts` (`outboundContextFor
 | Событие | В чат | В `messages` | Ещё |
 |---------|-------|--------------|-----|
 | Ответ модели (`shouldReply`) | да | да | — |
-| Map pin | да | да | payload pin |
+| Map pin | да | да | `MessagePayload` `points` |
 | Debug / ошибка LLM | по политике | нет (`ephemeral`) | — |
 | `/settings`, `/forget`, пустой `/ask` | да | нет | — |
 | Invoke LLM | нет | нет | `llm_calls` |

@@ -4,51 +4,76 @@ Typed тело реплики, когда plain `MessageRef.body` / PG `messages
 
 Hub — [domain](./index.md). PG mapping — [storage-mapping](../storage-mapping.md) § MessageRef. Когда tool пишет в историю — [tools/composite](../tools/composite.md) § Память.
 
+Имена **instruments** и **egress item** (transport) — отдельная ось от **`MessagePayload.type`**; здесь только **domain payload**.
+
 ---
 
 ## Зачем
 
 Ветка `MessagePayload` — это вид содержимого, который пользователь различает как разный и который persist обязан хранить отдельно. Не тулза, не операция транспорта, не событие, не вариант рендера одного и того же содержимого.
 
-Presentation (карта / таблица / текст на wire) — **не** в payload; только факт в ленте разговора для CHAT HISTORY.
+Presentation (N bubble на wire, карта vs таблица) — **не** в payload; только факт в ленте для CHAT HISTORY.
 
 ---
 
-## Три слоя (не синонимы)
+## Два вида на карте
 
-| Слой | Имя | Смысл |
-|------|-----|--------|
-| Instrument | `show_map_pin`, later … | глагол модели |
-| Wire | `ConversationOutboundItem.kind: 'map_pin'` | transport: `sendLocation`, один bubble |
-| Domain | `MessagePayload.type: 'point' \| 'route' \| 'area'` | факт в истории разговора |
+| Вид | Откуда | Смысл |
+|-----|--------|--------|
+| **`points`** | координаты от модели/пользователя (источник не важен) | группа **точек** — чистая геометрия + подписи |
+| **`places`** | `geocode_place` → [`GeocodePlace[]`](../tools/geocode.md#geocoder-contract) | группа **мест** — resolved entities (label, address, kind) |
 
-Mapper v0: wire `map_pin` → domain `point` (один элемент в `points[]`). Tool name и wire kind **не** меняются при смене domain-типа ([#127](https://github.com/skepsik/utlas-ts/issues/127)).
+`geocode_place` **не** превращает результат в `points`. Composite geocode → показ на карте пишет **`places`**, не coords с address на point.
+
+---
+
+## Кардинальность и группа
+
+**Всегда массив** — даже одна точка: `points: [{ at, label? }]`.
+
+Одна egress-операция → **один** payload → **одна неразрывная группа** на карте (независимо от клиента). N send на wire — presentation; в PG **одна** строка `messages`.
+
+Вторая операция → второй payload, даже подряд по времени. Несколько сообщений **не** склеиваются в одну группу (в т.ч. через будущий `Utterance`).
+
+`title?` — подпись **группы** в CHAT HISTORY; `label` на элементе — подпись **точки/места**.
 
 ---
 
 ## Типы (плоский union)
 
-Геометрия в истории — **siblings** в union, без зонтика `LocationPayload`:
-
 ```ts
-type GeoPoint = {
-  lat: number;
-  lon: number;
-  label?: string;
+/** class — единственная точка сборки coords; WGS84, finite; map helpers toLatLon / toLonLat */
+class GeoPoint {
+  readonly lat: number;
+  readonly lon: number;
+  static create(lat: number, lon: number): GeoPoint;
+  static fromUnknown(value: unknown): GeoPoint | undefined;
+}
+
+type LabeledPoint = { at: GeoPoint; label?: string };
+// createLabeledPointAt(at, label?)
+
+/** @see geocode.md — тот же тип в GeocodeResult и PlacesPayload */
+type GeocodePlace = {
+  label: string;
+  at: GeoPoint;
   address?: string;
+  kind?: string;
 };
+// createGeocodePlaceAt(label, at, options?)
 
-type PointPayload = { type: "point"; points: GeoPoint[] };   // порядок не важен
-type RoutePayload = { type: "route"; points: GeoPoint[] };   // порядок важен
-type AreaPayload = { type: "area"; ring: GeoPoint[] };
+type PointsPayload = { type: "points"; title?: string; points: LabeledPoint[] };
+type PlacesPayload = { type: "places"; title?: string; places: GeocodePlace[] };
 
-type MessagePayload = PointPayload | RoutePayload | AreaPayload;
-type MessagePayloadType = MessagePayload["type"];
+type MessagePayload = PointsPayload | PlacesPayload;
+type PayloadType = MessagePayload["type"];
 ```
 
-**v0 в коде:** только `point` (литерал `map_pin` до [#127](https://github.com/skepsik/utlas-ts/issues/127)); `route` / `area` — типы в union + format stub, без runner'ов.
+**Later:** `route`, `area` — отдельные ветки union (геометрия пути/полигона), не подвид `points`/`places`.
 
-Код: `packages/core/src/domain/model/message-payload.ts`.
+**Read boundary:** `createLabeledPointFromUnknown`, `createGeocodePlaceFromUnknown` — jsonb / wire → domain (без type guards наружу).
+
+Код: `packages/core/src/domain/model/message-payload.ts`, `geo-point.ts`, `geocode-place.ts`.
 
 ---
 
@@ -63,7 +88,7 @@ MessageRef {
 
 **Обычный текст:** `payload` отсутствует, PG `type` = `NULL`, данные в `text`.
 
-**Typed:** колонка PG **`type`** + **`payload`** jsonb (поля варианта **без** discriminant внутри). Storage **собирает** domain на read, **разбирает** на write — `packages/core/src/storage/messages/persist.ts`.
+**Typed:** PG **`type`** + **`payload`** jsonb (поля варианта **без** discriminant внутри). Storage assemble/split — `packages/core/src/storage/messages/persist.ts`.
 
 ---
 
@@ -71,36 +96,78 @@ MessageRef {
 
 | PG | Domain |
 |----|--------|
-| `messages.type` = `NULL` | plain text, `payload` нет |
-| `messages.type` = `point` \| `route` \| `area` | соответствующая ветка union |
-| `messages.payload` jsonb | поля варианта без `type` |
+| `messages.type` = `NULL` | plain text |
+| `messages.type` = `points` \| `places` | соответствующая ветка union |
+| `messages.payload` jsonb | `title?`, `points[]` или `places[]` без `type` |
 
-Пример jsonb для `point`:
+Пример `points` (domain и jsonb совпадают — nested `at`):
 
 ```json
-{ "points": [{ "label": "…", "lat": 55.75, "lon": 37.62 }] }
+{
+  "title": "Координаты",
+  "points": [{
+    "at": { "lat": 55.75, "lon": 37.62 },
+    "label": "Красная площадь"
+  }]
+}
 ```
 
-Миграция prod: `map_pin` → `point`, flat body → `{ points: [...] }` ([#127](https://github.com/skepsik/utlas-ts/issues/127)).
+Пример `places` — **jsonb flat** lat/lon; domain поднимает в `GeocodePlace.at` при read:
+
+```json
+{
+  "places": [{
+    "label": "Красная площадь",
+    "lat": 55.75,
+    "lon": 37.62,
+    "address": "Москва, …"
+  }]
+}
+```
 
 ---
 
 ## CHAT HISTORY
 
-`formatMessage` (`packages/core/src/llm/prompt/format.ts`) — явная ветка по `payload.type`, не угадывание по эмодзи:
+`formatMessage` — ветка по `payload.type`:
 
 ```text
-[time] Bot (bot) [point]:
-  label: Красная площадь, Москва
-  coordinates: 55.75, 37.62
-```
+[time] Bot (bot) [points]:
+  title: Координаты
+  - label: …
+    coordinates: 55.75, 37.62
 
-Заголовки для stub: `[point]`, `[route]`, `[area]`.
+[time] Bot (bot) [places]:
+  - label: …
+    address: …
+    coordinates: 55.75, 37.62
+```
 
 ---
 
-## Не в scope этой страницы
+## Rejected
 
-- Utterance table / отдельные ref-типы — [utterance](../utterance.md)
-- Egress rename `kind` → `form` — [#128](https://github.com/skepsik/utlas-ts/issues/128)
-- Tool loop, compose blocks — [tools/composite](../tools/composite.md)
+### `locations` + внутренний discriminant на wire и в payload
+
+Один item `{ kind: "locations", variant: "points" | "places", … }` (**не делаем**): расщепляет discriminant — wire variant ≠ domain `type`, ломается тождество wire ↔ domain и прямой mapper «что отправили = что persist». Две ветки union на domain; wire — отдельная ось transport, не umbrella `locations`.
+
+### Address на `LabeledPoint`
+
+(**не делаем**): address — поле **`GeocodePlace`**, не `LabeledPoint`. Geocode-path → `places`, не `points` с address.
+
+### Отдельный domain-тип `Place`
+
+(**не делаем**): второй тип-синоним `GeocodePlace`. Канон — один `GeocodePlace` с `at: GeoPoint` ([geocode](../tools/geocode.md)); geocoder, persist и `PlacesPayload` — тот же тип.
+
+### Один элемент без массива
+
+Синглтон `lat/lon` на payload вместо `points: [...]` (**не делаем**): кардинальность всегда «группа»; `length === 1` — частный случай.
+
+---
+
+## Не в scope
+
+- Имена LLM tools / egress item literals — [composite](../tools/composite.md) § Именование
+- `places` runner / composite persist на карту — [#38](https://github.com/skepsik/utlas-ts/issues/38)
+- Utterance table — [utterance](../utterance.md)
+- Tool loop — [tools/composite](../tools/composite.md)

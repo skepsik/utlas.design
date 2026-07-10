@@ -10,7 +10,7 @@
 | -------- | ---- |
 | [layout](./layout.md) | Monorepo, слои, clients/tools, imports |
 | [domain](./domain/) | MessageRef, SemanticThread, glossary, ports |
-| [message-payload](./domain/message-payload.md) | Typed payload: point, route, area |
+| [message-payload](./domain/message-payload.md) | Typed payload: `points`, `places` |
 | [semantic-thread](./semantic-thread.md) | SemanticThread: Selector → Heuristic → Builder |
 | [storage-mapping](./storage-mapping.md) | MessageRef ↔ Postgres |
 
