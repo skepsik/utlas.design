@@ -4,7 +4,7 @@
 
 Домен ([domain](../domain.md)) agnostic: `MessageRef`, turn. Transport переводит сырой event мессенджера в `MessageRef` и обратно — turn и storage не знают wire.
 
-**Сейчас:** единственная реализация — [Telegram v0](./telegram.md). Симметричные порты ingress/egress ([#110](https://github.com/skepsik/utlas-ts/issues/110), [#69](https://github.com/skepsik/utlas-ts/issues/69)); identity чата — uuid + `external_key` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
+**Сейчас:** единственная реализация — [Telegram v0](./telegram.md). Симметричные порты ingress/egress ([#110](https://github.com/skepsik/utlas-ts/issues/110), [#69](https://github.com/skepsik/utlas-ts/issues/69)); identity чата — uuid + `external_key` ([#81](https://github.com/skepsik/utlas-ts/issues/81)). Egress: split `telegram/outbound/`, `OutboundPort.wire()` + `deliver()` ([#126](https://github.com/skepsik/utlas-ts/issues/126)); turn v0 по-прежнему только `deliver` (batch `wire` → PG — [#117](https://github.com/skepsik/utlas-ts/issues/117)).
 
 ---
 
@@ -27,7 +27,7 @@
 
 ## Ports
 
-Контракты в `transport/types.ts`. Wire-специфика — в подпапке мессенджера ([Telegram](./telegram.md)).
+Контракты в `transport/types/` (barrel `index.ts`). Wire-специфика — в подпапке мессенджера ([Telegram](./telegram.md)).
 
 ### InboundPort ([#110](https://github.com/skepsik/utlas-ts/issues/110))
 
@@ -89,15 +89,28 @@ type ConversationOutboundItem =
 
 type OutboundPersistPolicy = "history" | "ephemeral"; // default: history
 
-type WireReceipt = {
-  messageId: string;
-  sentAt: Date;
-  anchorRef: string | null;
-  conversationId: string;
-  sender: ParticipantRef;
-  textBody: string;
-  payload?: MapPinPayload;
-};
+type WireReceipt =
+  | {
+      kind: "text";
+      messageId: string;
+      sentAt: Date;
+      anchorRef: string | null;
+      conversationId: string;
+      sender: ParticipantRef;
+      userId: string;
+      textBody: string;
+    }
+  | {
+      kind: "map_pin";
+      messageId: string;
+      sentAt: Date;
+      anchorRef: string | null;
+      conversationId: string;
+      sender: ParticipantRef;
+      userId: string;
+      textBody: "";
+      payload: MapPinPayload; // domain: payload.type === "map_pin"
+    };
 
 type OutboundPort = {
   /** Messenger send; batch PG — turn flush (#117), not a third persist policy. */
@@ -131,7 +144,7 @@ type OutboundContext = {
 | Поле | Смысл |
 |------|--------|
 | `conversationId` | uuid row |
-| `conversation` | снимок для persist и prompt boundary; тип `OutboundConversation` — `apps/runtime/src/transport/types.ts` ([#97](https://github.com/skepsik/utlas-ts/issues/97)), не storage |
+| `conversation` | снимок для persist и prompt boundary; тип `OutboundConversation` — `transport/types/outbound-port.ts`, builder `outbound-conversation.ts` ([#97](https://github.com/skepsik/utlas-ts/issues/97)), не storage |
 | `triggerMessageId` | id сообщения-повода; anchor при записи исходящего |
 | `replyToMessageId` | только wire-reply; **по умолчанию не задаётся** |
 

@@ -159,7 +159,9 @@ prepareTelegramUserMessageInbound
 Команды и служебные ответы вне turn — только в чат (`ephemeral`), без wire-reply на trigger.
 
 ```text
-createTelegramOutboundPort.deliver
+createTelegramOutboundPort — transport/telegram/outbound/ ([#126](https://github.com/skepsik/utlas-ts/issues/126))
+  wire()   → sendTextInChunks / sendLocation (facts → WireReceipt)
+  deliver() → wire() + persistWireReceipt (history) или wire only (ephemeral)
   ← telegramWireTarget (uuid → chat_id + thread)
   ← markdownToTelegramHtml; sendTextInChunks (TELEGRAM_MAX_TEXT_LENGTH)
 

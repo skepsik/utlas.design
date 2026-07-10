@@ -45,7 +45,7 @@ Low-level `ensureConversation` / `updateBotEnabled` / … остаются в ba
 
 ## OutboundConversation ([#97](https://github.com/skepsik/utlas-ts/issues/97))
 
-Egress DTO для одного `OutboundPort.deliver` — **не** PG mapping. Тип и `outboundConversation()` — `apps/runtime/src/transport/types.ts`, `outbound-conversation.ts`; не в storage.
+Egress DTO для одного `OutboundPort.deliver` — **не** PG mapping. Тип `OutboundConversation` — `transport/types/outbound-port.ts`; builder `outboundConversation()` — `transport/outbound-conversation.ts`; не в storage.
 
 См. [transport](./transport/index.md) § OutboundContext.
 
@@ -132,9 +132,9 @@ Forum topic — отдельная row (`external_key` с `:t{thread_id}`). **Wr
 | `sender.isBot` | `is_bot` | |
 | `anchorRef` | `reply_to_message_id` | transport signal |
 | `quotedExcerpt` | `quoted_text` | `quote_position` — transport-only |
-| `body` | `text` | plain text; `kind` null |
-| `kind` | `kind` | `NULL` или `map_pin`, later `document`, … — SQL-фильтр |
-| `payload` | `payload` jsonb | поля варианта без `kind`; storage ↔ domain — [composite](./tools/composite.md) |
+| `body` | `text` | plain text; PG `type` null |
+| `payload?.type` | `type` | `NULL` или `map_pin`, later `document`, … — SQL-фильтр |
+| `payload` (поля) | `payload` jsonb | поля варианта без discriminant; storage ↔ domain — [composite](./tools/composite.md) |
 | `sentAt` | `sent_at` | UTC `YYYY-MM-DD HH:mm:ss` |
 | `forward.from.label` | `forward_from` | |
 | `forward.originAt` | `forward_origin_at` | |

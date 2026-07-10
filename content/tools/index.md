@@ -25,7 +25,7 @@ LLM answer { toolCalls? }
 ## Размещение
 
 ```text
-tools/registry/         atoms + chain edges (composite)
+tools/registry/         definitions/ + Map lookup ([#126](https://github.com/skepsik/utlas-ts/issues/126)); chain edges later
 tools/runners/          instruments (geocode, map-pin, …)
 turn/run-turn.ts        tool loop wiring
 llm/                    adapter structured output, wire schema
@@ -42,7 +42,9 @@ Transport не импортирует `llm/`; turn склеивает.
 
 Turn знает набор wired tools (v0: фиксированный; later: policy / per-tenant).
 
-Каждый tool: `name`, JSON schema args, runner в `tools/runners/`. Цепочки — **рёбра** между атомами, см. [composite](./composite.md).
+**Сейчас ([#126](https://github.com/skepsik/utlas-ts/issues/126)):** `ToolDefinition` в `definitions/` — `name`, `execute`, `visibility` (`hidden` | `visible`), `result` policy (`history` | `none`). `createToolRegistry()` — `Map` lookup, `lookup(name)` + `execute`; без цепочки `if (name)`. Runner остаётся в `tools/runners/`; `show_map_pin` — hidden, `result: history`.
+
+**Цель:** JSON schema args на definition, рёбра `composite`, `availableToolsResolver` — [composite](./composite.md).
 
 | Tool / механизм | Страница |
 |-----------------|----------|

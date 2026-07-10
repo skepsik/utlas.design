@@ -56,7 +56,7 @@ documents     — content, url, + FTS индекс
 
 ## Связь с текущим кодом
 
-Сейчас в коде: `messages` + `payload jsonb` с `kind` — один вид хранения для всего. Работает для `map_pin`, но не для документов с FTS.
+Сейчас в коде: `messages` — колонка **`type`** + **`payload`** jsonb; domain discriminant — `MessagePayload.type` (v0: `map_pin`). Работает для pin, но не для документов с FTS.
 
 `utterances` как индексная таблица добавляется поверх существующей структуры — `messages` остаётся, `map_pins` и `documents` добавляются как отдельные таблицы по мере необходимости.
 
