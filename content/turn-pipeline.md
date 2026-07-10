@@ -1,6 +1,6 @@
 # Turn pipeline
 
-**Turn / pipeline** — скобка конкурентности (`turn.start` / `turn.stop`), сценарий шагов orchestrator'а и default path user→bot. Transport ([transport](./transport/)) вызывает `runTurn`; domain ([domain](./domain.md)) agnostic.
+**Turn / pipeline** — скобка конкурентности (`turn.start` / `turn.stop`), сценарий шагов orchestrator'а и default path user→bot. Transport ([transport](./transport/)) вызывает `runTurn`; domain ([domain](./domain/)) agnostic.
 
 См. также: [envelope](./envelope/index.md), [turn-prompt](./turn-prompt.md), [llm-jobs](./llm-jobs.md).
 

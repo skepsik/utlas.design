@@ -118,7 +118,7 @@ Wire-first — Типы → Wire → …; behavior-first — Зачем → ме
 | Паттерн | Пример |
 |---------|--------|
 | **Hub** | `content/index.md` |
-| **Glossary** | `domain.md` |
+| **Glossary** | `domain/index.md` |
 | **Mapping** | `storage-mapping.md` |
 | **Spike** | `prompts/context-bus.md` — blockquote «spike, не канон» |
 

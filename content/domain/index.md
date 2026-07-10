@@ -10,7 +10,8 @@
 
 | Термин              | Где в коде                               | Смысл                                                                                                                                                                                             |
 | ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MessageRef**      | `@utlas/core/domain/model/message-ref`   | Одна реплика после ingress; атом хранения и envelope. Plain text — `body` / PG `text`; optional **`MessagePayload`** (`payload.type`, v0: `map_pin`) — [tools/composite](./tools/composite.md) § Память |
+| **MessageRef**      | `@utlas/core/domain/model/message-ref`   | Одна реплика после ingress; атом хранения и envelope. Plain text — `body` / PG `text`; optional **`MessagePayload`** — [message-payload](./message-payload.md) |
+| **MessagePayload**  | `@utlas/core/domain/model/message-payload` | Typed тело реплики (`point`, `route`, `area`) — [message-payload](./message-payload.md) |
 | **Anchor**          | `TurnRequest.anchor`                     | `MessageRef`, открывающий turn; центр **USER MESSAGE**                                                                                                                                            |
 | **Conversation**    | `conversationId` (uuid) + `transport`    | Атом разговора в PG: `conversations.id`. Transport wire — `external_key` (`UNIQUE(transport, external_key)`); domain / turn / storage видят только uuid в `MessageRef.conversationId`. Forum topic — отдельная row ([#81](https://github.com/skepsik/utlas-ts/issues/81)). |
 | **DialogArity**     | `TurnRequest.arity`, `conversations.dialog_arity` | `private` \| `group` — qualifying и prompt. **Effective** arity — getter `MembershipInfo.dialogArity` ([#81](https://github.com/skepsik/utlas-ts/issues/81)). |
@@ -37,7 +38,7 @@ Product voice — participant с `isBot` + binding; **role** (`our_voice`) — l
 ```
 packages/core/src/
   domain/
-    model/       MessageRef, ParticipantRef, MessageForward, AttributionRef,
+    model/       MessageRef, MessagePayload, ParticipantRef, MessageForward, AttributionRef,
                  SemanticThread, RecentMessages, DialogArity, MembershipInfo
     services/    buildSemanticThread, selectRecentBefore, replyTargetForTrigger
     ports.ts     MessageReadPort, MessageSelector, SelectContext
@@ -60,6 +61,7 @@ MessageRef {
   quotedExcerpt: string | null
   links: string[]
   forward?: MessageForward
+  payload?: MessagePayload   // typed body — message-payload.md
 }
 ```
 
@@ -188,6 +190,7 @@ Transport egress: `OutboundContext.replyToMessageId` → wire (`reply_parameters
 | In | Out |
 |----|-----|
 | `MessageRef`, participants, forward/quote | qualifying (transport) |
+| `MessagePayload` (typed body) | wire encoding (transport) |
 | `SemanticThread`, `RecentMessages`, read port | turn concurrency, LLM |
 | `replyTargetForTrigger` (egress threading rule) | wire encoding (transport) |
 | модель semantic thread (не = reply-chain) | social graph |

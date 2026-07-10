@@ -2,7 +2,7 @@
 
 Зонтичный тип для всего что происходит в разговоре — текст, карта, документ. Домен работает с `Utterance`, не знает о деталях транспорта и хранения.
 
-> **Статус:** концепт, не реализовано. Текущий код — `MessageRef` с опциональным `MessagePayload` (discriminated union). Переход к `Utterance` — отдельный design-review.
+> **Статус:** концепт, не реализовано. Текущий код — `MessageRef` с опциональным `MessagePayload` — [message-payload](./domain/message-payload.md). Переход к `Utterance` — отдельный design-review.
 
 ---
 
@@ -56,7 +56,7 @@ documents     — content, url, + FTS индекс
 
 ## Связь с текущим кодом
 
-Сейчас в коде: `messages` — колонка **`type`** + **`payload`** jsonb; domain discriminant — `MessagePayload.type` (v0: `map_pin`). Работает для pin, но не для документов с FTS.
+Сейчас в коде: `messages` — колонка **`type`** + **`payload`** jsonb; канон domain — [message-payload](./domain/message-payload.md) (v0 в коде: литерал `map_pin` до #127). Работает для pin, но не для документов с FTS.
 
 `utterances` как индексная таблица добавляется поверх существующей структуры — `messages` остаётся, `map_pins` и `documents` добавляются как отдельные таблицы по мере необходимости.
 
@@ -75,9 +75,9 @@ documents     — content, url, + FTS индекс
 
 ## Rejected
 
-### `MessagePayload` как discriminated union внутри `MessageRef`
+### `MessagePayload` внутри `MessageRef`
 
-(**не развивать**): домен расширяется непрозрачно, `switch` по `kind` в каждом consumer, mutual exclusivity не очевидна. Работает для одного вида (`map_pin`), плохо масштабируется.
+Канон typed payload — [message-payload](./domain/message-payload.md). Долгосрочно при переходе к `Utterance` union на верхнем уровне — не развивать ad-hoc поля на `MessageRef`.
 
 ### Опциональные поля на `MessageRef`
 

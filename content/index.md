@@ -9,7 +9,8 @@
 | Страница | Тема |
 | -------- | ---- |
 | [layout](./layout.md) | Monorepo, слои, clients/tools, imports |
-| [domain](./domain.md) | MessageRef, SemanticThread, glossary, ports |
+| [domain](./domain/) | MessageRef, SemanticThread, glossary, ports |
+| [message-payload](./domain/message-payload.md) | Typed payload: point, route, area |
 | [semantic-thread](./semantic-thread.md) | SemanticThread: Selector → Heuristic → Builder |
 | [storage-mapping](./storage-mapping.md) | MessageRef ↔ Postgres |
 
@@ -44,7 +45,7 @@
 | Страница | Тема |
 | -------- | ---- |
 | [tools](./tools/index.md) | Tool loop, registry, prompt |
-| [composite](./tools/composite.md) | Цепочки, `composite`, память, map pin |
+| [composite](./tools/composite.md) | Цепочки, `composite`, память tool loop |
 | [native tool calls](./tools/native-tool-calls.md) | Rejected: провайдерский tools API |
 | [geocode](./tools/geocode.md) | Geocoder contract, map pin |
 | [message-search](./tools/message-search.md) | `search_messages` |

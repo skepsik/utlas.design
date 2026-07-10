@@ -1,6 +1,6 @@
 # SemanticThread
 
-Hub — [domain](./domain.md) § SemanticThread.
+Hub — [domain](./domain/) § SemanticThread.
 
 ---
 

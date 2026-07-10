@@ -16,7 +16,8 @@ export default defineConfig({
         text: "Core",
         items: [
           { text: "Layout", link: "/layout" },
-          { text: "Domain", link: "/domain" },
+          { text: "Overview", link: "/domain/" },
+          { text: "MessagePayload", link: "/domain/message-payload" },
           { text: "Semantic thread", link: "/semantic-thread" },
           { text: "Storage mapping", link: "/storage-mapping" },
           { text: "Utterance (концепт)", link: "/utterance" },

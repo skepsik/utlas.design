@@ -2,7 +2,7 @@
 
 Сборка `LlmPrompt` для turn: **composer** в `@utlas/core/llm/prompt/`; default resolver chains — `apps/runtime/src/llm/`. Текст policy — в PG `prompt_blocks`; **порядок секций — только в git** (`prompt-composer.ts` + тесты). Вики — роли и паттерны, не нумерованный manifest.
 
-Domain slots — [domain](./domain.md) § Context assembly.
+Domain slots — [domain](./domain/) § Context assembly.
 
 ---
 

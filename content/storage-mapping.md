@@ -1,6 +1,6 @@
 # Storage mapping
 
-MessageRef ↔ Postgres. Domain types — [domain](./domain.md). Conversation identity (uuid, `external_key`, `dialogArity`) — [#81](https://github.com/skepsik/utlas-ts/issues/81).
+MessageRef ↔ Postgres. Domain types — [domain](./domain/). Conversation identity (uuid, `external_key`, `dialogArity`) — [#81](https://github.com/skepsik/utlas-ts/issues/81).
 
 ---
 
@@ -133,8 +133,8 @@ Forum topic — отдельная row (`external_key` с `:t{thread_id}`). **Wr
 | `anchorRef` | `reply_to_message_id` | transport signal |
 | `quotedExcerpt` | `quoted_text` | `quote_position` — transport-only |
 | `body` | `text` | plain text; PG `type` null |
-| `payload?.type` | `type` | `NULL` или `map_pin`, later `document`, … — SQL-фильтр |
-| `payload` (поля) | `payload` jsonb | поля варианта без discriminant; storage ↔ domain — [composite](./tools/composite.md) |
+| `payload?.type` | `type` | `NULL` или `point` \| `route` \| `area` — SQL-фильтр |
+| `payload` (поля) | `payload` jsonb | поля варианта без discriminant; storage ↔ domain — [message-payload](./domain/message-payload.md) |
 | `sentAt` | `sent_at` | UTC `YYYY-MM-DD HH:mm:ss` |
 | `forward.from.label` | `forward_from` | |
 | `forward.originAt` | `forward_origin_at` | |

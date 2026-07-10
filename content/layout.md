@@ -74,7 +74,7 @@ utlas-ts/
 
 | Слой | Сущности / порты | Каталог |
 |------|------------------|---------|
-| **Domain** | `MessageRef`, `SemanticThread`, `RecentMessages`, `MessageReadPort` | `packages/core/src/domain/` — [domain](./domain.md) |
+| **Domain** | `MessageRef`, `SemanticThread`, `RecentMessages`, `MessageReadPort` | `packages/core/src/domain/` — [domain](./domain/) |
 | **Turn** | `TurnRequest`, `runTurn`, supersede — **скобка конкурентности** | `apps/runtime/src/turn/` — [turn-pipeline](./turn-pipeline.md) |
 | **Transport** | ingress, qualifying, **`OutboundPort`** | `apps/runtime/src/transport/` — [transport](./transport/) |
 | **Clients** | wire + auth; `ClientRegistry` | `apps/runtime/src/clients/` |

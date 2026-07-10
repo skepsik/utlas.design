@@ -2,7 +2,7 @@
 
 **Transport layer** — доставка human↔assistant через messengers: ingress, qualifying, egress. Один мессенджer = подпапка `transport/<name>/`; SDK и подписка на события **только** там.
 
-Домен ([domain](../domain.md)) agnostic: `MessageRef`, turn. Transport переводит сырой event мессенджера в `MessageRef` и обратно — turn и storage не знают wire.
+Домен ([domain](../domain/)) agnostic: `MessageRef`, turn. Transport переводит сырой event мессенджера в `MessageRef` и обратно — turn и storage не знают wire.
 
 **Сейчас:** единственная реализация — [Telegram v0](./telegram.md). Симметричные порты ingress/egress ([#110](https://github.com/skepsik/utlas-ts/issues/110), [#69](https://github.com/skepsik/utlas-ts/issues/69)); identity чата — uuid + `external_key` ([#81](https://github.com/skepsik/utlas-ts/issues/81)). Egress: split `telegram/outbound/`, `OutboundPort.wire()` + `deliver()` ([#126](https://github.com/skepsik/utlas-ts/issues/126)); turn v0 по-прежнему только `deliver` (batch `wire` → PG — [#117](https://github.com/skepsik/utlas-ts/issues/117)).
 
@@ -148,7 +148,7 @@ type OutboundContext = {
 | `triggerMessageId` | id сообщения-повода; anchor при записи исходящего |
 | `replyToMessageId` | только wire-reply; **по умолчанию не задаётся** |
 
-Turn собирает context в `turn/outbound-context.ts` (`outboundContextForTurn`). Классический ответ модели — preset «reply на trigger»; правило *когда* reply уместен — domain `replyTargetForTrigger` ([domain](../domain.md) § Outbound reply threading). Команды и ephemeral вне turn — `outboundContextFromTelegramMessage` (**без** `replyToMessageId`).
+Turn собирает context в `turn/outbound-context.ts` (`outboundContextForTurn`). Классический ответ модели — preset «reply на trigger»; правило *когда* reply уместен — domain `replyTargetForTrigger` ([domain](../domain/) § Outbound reply threading). Команды и ephemeral вне turn — `outboundContextFromTelegramMessage` (**без** `replyToMessageId`).
 
 **Три оси (не смешивать):**
 
@@ -213,7 +213,7 @@ Transport { type: TransportTag; start(): Promise<void>; stop(): Promise<void> }
 
 ## Transport tag на boundary
 
-Тег transport — scope **разговора**, не utterance. Persist ingress и `TurnRequest` несут tag; в prompt — `ctx.transport`. **Не поле `MessageRef`.** [#33](https://github.com/skepsik/utlas-ts/issues/33). Hub: [domain](../domain.md) § Transport tag.
+Тег transport — scope **разговора**, не utterance. Persist ingress и `TurnRequest` несут tag; в prompt — `ctx.transport`. **Не поле `MessageRef`.** [#33](https://github.com/skepsik/utlas-ts/issues/33). Hub: [domain](../domain/) § Transport tag.
 
 Канон значений — `TransportTag` в domain (`TransportTag.telegram`, …). Composition root: `createConversationWireStore(pg, TransportTag.telegram)`; handlers — `store.transport`, без дублирования литерала на call sites ([#98](https://github.com/skepsik/utlas-ts/issues/98)).
 
