@@ -1,6 +1,6 @@
 # Domain
 
-Модель **human↔assistant**: qualifying ([transport](./transport/)) → **turn** ([turn-pipeline](./turn-pipeline.md)) → ответ. Групповой чат — источник реплик; предмет домена — **anchor** (обращение к нашему binding), не социальный граф.
+Модель **human↔assistant**: qualifying ([transport](../transport/)) → **turn** ([turn-pipeline](../turn-pipeline.md)) → ответ. Групповой чат — источник реплик; предмет домена — **anchor** (обращение к нашему binding), не социальный граф.
 
 **`SemanticThread`** — семантическая ветка по **смыслу** вокруг anchor (не OS/TG thread, не синоним reply-chain).
 
@@ -20,9 +20,9 @@
 | **Participant**     | `ParticipantRef`                         | Автор реплики                                                                                                                                                                                     |
 | **Semantic thread** | `SemanticThread`                         | Семантическая ветка **по смыслу** вокруг anchor — utterances, отобранные эвристиками и (later) семантическим анализом. **Не** синоним reply-chain                                                 |
 | **Recent messages** | `RecentMessages`                         | Хронологическое окно `MessageRef` перед anchor                                                                                                                                                    |
-| **Turn**            | `TurnRequest` → `runTurn`                | **Скобка конкурентности**: один in-flight ответ на burst/anchor; supersede, cancel, deliver. Pipeline — [turn-pipeline](./turn-pipeline.md)                                                       |
-| **Qualifying**      | `qualifiesForTurn`                       | Transport gate «это обращение к нам?» — **не** domain. `dialogArity` — из `MembershipInfo` на handler boundary (chat-level `member_count` + `chat.type`), не сырой `chat.type` без count ([#81](https://github.com/skepsik/utlas-ts/issues/81)) — [transport](./transport/) |
-| **Owner**           | tenancy (later)                          | SaaS-клиент; **не** participant — [tenancy](./tenancy.md)                                                                                                                                         |
+| **Turn**            | `TurnRequest` → `runTurn`                | **Скобка конкурентности**: один in-flight ответ на burst/anchor; supersede, cancel, deliver. Pipeline — [turn-pipeline](../turn-pipeline.md)                                                       |
+| **Qualifying**      | `qualifiesForTurn`                       | Transport gate «это обращение к нам?» — **не** domain. `dialogArity` — из `MembershipInfo` на handler boundary (chat-level `member_count` + `chat.type`), не сырой `chat.type` без count ([#81](https://github.com/skepsik/utlas-ts/issues/81)) — [transport](../transport/) |
+| **Owner**           | tenancy (later)                          | SaaS-клиент; **не** participant — [tenancy](../tenancy.md)                                                                                                                                         |
 | **Assistant**       | —                                        | Разговорный термин; **entity в domain нет**                                                                                                                                                       |
 
 Product voice — participant с `isBot` + binding; **role** (`our_voice`) — later.
@@ -44,7 +44,7 @@ packages/core/src/
     ports.ts     MessageReadPort, MessageSelector, SelectContext
 ```
 
-**Правило:** `domain/` без SDK, ORM, grammY. Каталог — `@utlas/core`; см. [layout](./layout.md) § Monorepo.
+**Правило:** `domain/` без SDK, ORM, grammY. Каталог — `@utlas/core`; см. [layout](../layout.md) § Monorepo.
 
 ### MessageRef
 
@@ -124,11 +124,11 @@ Ingress (TG): `parseForward` → persist → prompt `[forward from: …]` в `@u
 | 2 | **SEMANTIC THREAD** | `SemanticThread` | `buildSemanticThread` | `replyChain` ← transport signal |
 | 3 | **USER MESSAGE** | anchor (+ `textOverride`) | — | — |
 
-Оба wrapper — `{ messages: MessageRef[] }`. Prompt assembly — [turn-prompt](./turn-prompt.md).
+Оба wrapper — `{ messages: MessageRef[] }`. Prompt assembly — [turn-prompt](../turn-prompt.md).
 
 ### SemanticThread — замысел vs v0
 
-**Замысел:** собрать реплики, **семантически** относящиеся к anchor (reply, open utterance, fork, deixis, …) — через `MessageSelector` registry и эвристики (`ThreadingProfile`, later LLM). Детали target-модели — [semantic-thread](./semantic-thread.md).
+**Замысел:** собрать реплики, **семантически** относящиеся к anchor (reply, open utterance, fork, deixis, …) — через `MessageSelector` registry и эвристики (`ThreadingProfile`, later LLM). Детали target-модели — [semantic-thread](../semantic-thread.md).
 
 **v0:** selector `replyChain` — literal walk по `anchorRef`; совпадает с TG reply-chain. **Не путать** с доменным определением SemanticThread.
 
@@ -139,7 +139,7 @@ MessageReadPort { selectors: { replyChain; windowBefore(limit) } }
 SelectContext { anchor; transport }
 ```
 
-См. [storage-mapping](./storage-mapping.md).
+См. [storage-mapping](../storage-mapping.md).
 
 ---
 
@@ -154,13 +154,13 @@ TurnRequest { anchor; membershipInfo: MembershipInfo; outbound; services; supers
 
 `membershipInfo` — из `TelegramMembershipResolver.forChat` на transport boundary **после** `persistIngress` (и после `initMemberCount` на message path). Не из сырого `chat.type` ([#81](https://github.com/skepsik/utlas-ts/issues/81)).
 
-v0: monolith `runTurn` + `turn-state.ts` (module-global Map, supersede). Целевая механика — [turn-pipeline](./turn-pipeline.md).
+v0: monolith `runTurn` + `turn-state.ts` (module-global Map, supersede). Целевая механика — [turn-pipeline](../turn-pipeline.md).
 
 ```
 enrichment → buildSemanticThread + selectRecentBefore → buildTurnPrompt → LlmRouter → egress
 ```
 
-Qualifying + ingress/egress: [transport](./transport/).
+Qualifying + ingress/egress: [transport](../transport/).
 
 ### Outbound reply threading
 
@@ -201,7 +201,7 @@ Transport egress: `OutboundContext.replyToMessageId` → wire (`reply_parameters
 ## Open
 
 - SemanticThread — selectors beyond `replyChain`; open utterance
-- Owner vs tenant — sync с [tenancy](./tenancy.md)
+- Owner vs tenant — sync с [tenancy](../tenancy.md)
 - `ParticipantRef.role` vs `isBot`
-- Chat settings — `bot_chats` per [tenancy](./tenancy.md)
+- Chat settings — `bot_chats` per [tenancy](../tenancy.md)
 - ThreadingProfile — контракт + storage
