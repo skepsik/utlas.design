@@ -83,15 +83,15 @@ createTelegramInboundPort({ pg }).ingest(envelope)
 Единый egress **наружу**: отправка в чат и (по политике) запись исходящего в историю — один вызов. Не отдельные «BotEgress» / domain `Utterance`.
 
 ```ts
-type ConversationOutboundItem =
-  | { kind: "text"; body: string }
-  | { kind: "map_pin"; lat: number; lon: number; label: string };
+type OutboundItem =
+  | { form: "text"; body: string }
+  | { form: "map_pin"; lat: number; lon: number; label: string };
 
 type OutboundPersistPolicy = "history" | "ephemeral"; // default: history
 
 type WireReceipt =
   | {
-      kind: "text";
+      form: "text";
       messageId: string;
       sentAt: Date;
       anchorRef: string | null;
@@ -101,7 +101,7 @@ type WireReceipt =
       textBody: string;
     }
   | {
-      kind: "map_pin";
+      form: "map_pin";
       messageId: string;
       sentAt: Date;
       anchorRef: string | null;
@@ -115,16 +115,18 @@ type WireReceipt =
 type OutboundPort = {
   /** Messenger send; batch PG — turn flush (#117), not a third persist policy. */
   wire(
-    item: ConversationOutboundItem,
+    item: OutboundItem,
     ctx: OutboundContext,
   ): Promise<WireReceipt>;
   deliver(
-    item: ConversationOutboundItem,
+    item: OutboundItem,
     ctx: OutboundContext,
     persist?: OutboundPersistPolicy,
   ): Promise<MessageRef | void>;
 };
 ```
+
+**`form`** — transport-форма egress-контента (ветка union item/receipt). Не `MessagePayload.type`, не wire-encoding (`parse_mode` / markdown→HTML).
 
 Wire (HTML, chunking, `sendLocation`) — в [Telegram § Egress](./telegram.md#egress).
 
@@ -154,7 +156,7 @@ Turn собирает context в `turn/outbound-context.ts` (`outboundContextFor
 
 | Ось | Смысл |
 |-----|--------|
-| **Item** | Что видит пользователь (`text`, `map_pin`, …) |
+| **Item (`form`)** | Что видит пользователь (`text`, `map_pin`, …) |
 | **Persist policy** | Пишем в `messages` или только в чат (`history` / `ephemeral`) |
 | **Batch history** | Turn egress: `wire()` → `WireReceipt`; PG batch на `turn:finished` (#109, #117) |
 | **Observability** | `llm_calls`, `generation_failures`, логи — **вне** port |
