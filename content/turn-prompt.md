@@ -60,7 +60,9 @@ Wiring: `TurnServices.promptComposer` → `runTurn` вызывает `compose()`
 | **SEMANTIC THREAD** | `semanticThreadResolver` | `buildSemanticThread` → `formatThread`      |
 | **USER MESSAGE**    | `userMessageResolver`    | anchor + `queryText`, optional reply parent |
 
-Порядок user-слотов (meta → history → thread → message) — контракт envelope
+Порядок user-слотов (meta → history → thread → message) — контракт envelope v0.
+
+Presentation: отдельный блок **SEMANTIC THREAD** vs маркер `[THREAD]` в ленте — design concept, не план реализации — [semantic-thread](./semantic-thread.md) § Подача модели.
 
 ---
 

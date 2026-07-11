@@ -12,11 +12,11 @@
 
 | Слой | Имя | Зачем |
 |------|-----|--------|
-| **LLM tool** | `show_map_pin` | смысл для модели: «показать точку на карте» |
-| **Egress port** | `OutboundPort.deliver` (`form`: `map_pin`, `text`) | transport-нейтральная доставка + persist policy |
+| **LLM tool** | `show_points` · `show_places` (later [#38](https://github.com/skepsik/utlas-ts/issues/38)) | смысл для модели: показать coords / resolved places |
+| **Egress port** | `OutboundPort.deliver` (`form`: `points`, `places`, `text`) | transport-нейтральная доставка + persist policy ([#130](https://github.com/skepsik/utlas-ts/issues/130)) |
 | **Telegram** | `api.sendLocation` | только в `transport/` |
 | **История (domain)** | `MessagePayload.type` (`points`, `places`) | [message-payload](../domain/message-payload.md); не путать с egress `form` |
-| **Egress item** | `OutboundItem.form` (`text`, `map_pin`) | transport-форма исходящего; не domain `type` |
+| **Egress item** | `OutboundItem.form` (`text`, `points`, `places`) | transport-форма исходящего; литералы согласованы с domain `type` |
 
 Модели **не** светим `sendLocation` / `deliver` — только стабильные tool names в prompt.
 
@@ -83,7 +83,7 @@ type ToolArgsCommon = {
 **На этапе 2b ([#68](https://github.com/skepsik/utlas-ts/issues/68))** — опционально **тот же** `ToolRunResult.block` для прогона связки:
 
 ```text
-form: map_pin
+form: points
 query: { lat, lon, label, egressMessageId }
 initialTtl: default (напр. 3) или из args
 ```

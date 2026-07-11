@@ -169,7 +169,7 @@ ephemeral вне turn: outboundContextFromTelegramMessage → deliverEphemeralFr
 turn: outboundContextForTurn (preset replyToTrigger)
 ```
 
-**Map pin** ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#107](https://github.com/skepsik/utlas-ts/issues/107)): `sendLocation` + `telegramMapPinReplyMarkup` (Google/Яндекс); runner — `OutboundPort.deliver` — [tools/composite](../tools/composite.md).
+**Location egress** ([#65](https://github.com/skepsik/utlas-ts/issues/65), [#107](https://github.com/skepsik/utlas-ts/issues/107), [#130](https://github.com/skepsik/utlas-ts/issues/130)): `sendLocation` + `telegramLocationReplyMarkup` (Google/Яндекс); runner `show_points` → `OutboundPort.deliver` (`form: points`) — [tools/composite](../tools/composite.md).
 
 ### Message lifecycle: edit / delete
 

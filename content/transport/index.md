@@ -85,7 +85,7 @@ createTelegramInboundPort({ pg }).ingest(envelope)
 ```ts
 type OutboundItem =
   | { form: "text"; body: string }
-  | { form: "map_pin"; lat: number; lon: number; label: string };
+  | { form: "points"; lat: number; lon: number; label: string };
 
 type OutboundPersistPolicy = "history" | "ephemeral"; // default: history
 
@@ -101,7 +101,7 @@ type WireReceipt =
       textBody: string;
     }
   | {
-      form: "map_pin";
+      form: "points";
       messageId: string;
       sentAt: Date;
       anchorRef: string | null;
@@ -156,7 +156,7 @@ Turn собирает context в `turn/outbound-context.ts` (`outboundContextFor
 
 | Ось | Смысл |
 |-----|--------|
-| **Item (`form`)** | Что видит пользователь (`text`, `map_pin`, …) |
+| **Item (`form`)** | Что видит пользователь (`text`, `points`, …) |
 | **Persist policy** | Пишем в `messages` или только в чат (`history` / `ephemeral`) |
 | **Batch history** | Turn egress: `wire()` → `WireReceipt`; PG batch на `turn:finished` (#109, #117) |
 | **Observability** | `llm_calls`, `generation_failures`, логи — **вне** port |

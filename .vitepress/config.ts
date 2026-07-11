@@ -30,6 +30,8 @@ export default defineConfig({
           { text: "Turn prompt", link: "/turn-prompt" },
           { text: "LLM jobs (концепт)", link: "/llm-jobs" },
           { text: "LLM execution", link: "/llm-execution" },
+          { text: "Атомарный turn (тезисы)", link: "/turn/Атомарный turn" },
+          { text: "Атомарный turn — open", link: "/turn/atomic-turn-open" },
         ],
       },
       {
@@ -58,7 +60,7 @@ export default defineConfig({
         items: [
           { text: "Overview", link: "/tools/" },
           { text: "Composite & memory", link: "/tools/composite" },
-          { text: "Native tool calls (Rejected)", link: "/tools/native-tool-calls" },
+          { text: "Wire: native tools & multi-message (Rejected)", link: "/tools/native-tool-calls" },
           { text: "Geocode", link: "/tools/geocode" },
           { text: "Message search", link: "/tools/message-search" },
         ],

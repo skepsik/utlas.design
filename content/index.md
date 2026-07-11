@@ -20,6 +20,8 @@
 | -------- | ---- |
 | [turn-pipeline](./turn-pipeline.md) | Turn start/stop, pipeline, shouldReply |
 | [turn-prompt](./turn-prompt.md) | Prompt composer, PG blocks, envelope |
+| [Атомарный turn](./turn/Атомарный%20turn.md) | **(концепт)** turn = один inference; тезисы |
+| [atomic-turn-open](./turn/atomic-turn-open.md) | **(концепт)** разобранное и открытое |
 | [llm-jobs](./llm-jobs.md) | **(концепт)** answer vs inference jobs, profile + strategy |
 | [llm-execution](./llm-execution.md) | Strategy (есть) + execution policy per step (пока нет) |
 
@@ -46,7 +48,7 @@
 | -------- | ---- |
 | [tools](./tools/index.md) | Tool loop, registry, prompt |
 | [composite](./tools/composite.md) | Цепочки, `composite`, память tool loop |
-| [native tool calls](./tools/native-tool-calls.md) | Rejected: провайдерский tools API |
+| [native tool calls](./tools/native-tool-calls.md) | Rejected: native tools API, multi-message wire |
 | [geocode](./tools/geocode.md) | Geocoder contract, map pin |
 | [message-search](./tools/message-search.md) | `search_messages` |
 
