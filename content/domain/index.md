@@ -124,7 +124,7 @@ Ingress (TG): `parseForward` → persist → prompt `[forward from: …]` в `@u
 | 2 | **SEMANTIC THREAD** | `SemanticThread` | `buildSemanticThread` | `replyChain` ← transport signal |
 | 3 | **USER MESSAGE** | anchor (+ `textOverride`) | — | — |
 
-Оба wrapper — `{ messages: MessageRef[] }`. Prompt assembly — [turn-prompt](../turn-prompt.md).
+Оба wrapper — `{ messages: MessageRef[] }`. Prompt assembly — [turn-prompt](../turn-prompt.md). Способ подачи thread в envelope (block vs marker) — concept, не v0: [semantic-thread](../semantic-thread.md) § Подача модели.
 
 ### SemanticThread — замысел vs v0
 

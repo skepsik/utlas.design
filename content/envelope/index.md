@@ -78,7 +78,7 @@ type LlmAnswer = {
 
 | Фаза | Поля | Семантика |
 |------|------|-----------|
-| **Execute** (tool loop) | `toolCalls?` | atomic или `composite` — [tools/composite](../tools/composite.md); native API — [Rejected](../tools/native-tool-calls.md) |
+| **Execute** (tool loop) | `toolCalls?` | atomic или `composite` — [tools/composite](../tools/composite.md); wire — [Rejected](../tools/native-tool-calls.md) |
 | **Declare** (после loop, до egress) | `scratchpad?`, `blockTtl?`, `conversationSettings?` | declarative patch: **ничего не execute**, только apply к storage |
 
 Nested wrapper (`sideEffects`) — **не сейчас**; top-level siblings. Группировку можно добавить позже.

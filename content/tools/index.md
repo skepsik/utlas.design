@@ -34,7 +34,7 @@ transport/              egress side-effects (sendLocation, …)
 
 Transport не импортирует `llm/`; turn склеивает.
 
-**Решения:** [composite](./composite.md) (цепочки, память) · [native-tool-calls](./native-tool-calls.md) (**Rejected**).
+**Решения:** [composite](./composite.md) (цепочки, память) · [native-tool-calls](./native-tool-calls.md) (**Rejected**: native tools, multi-message wire)
 
 ---
 

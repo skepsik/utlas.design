@@ -4,7 +4,7 @@ Typed тело реплики, когда plain `MessageRef.body` / PG `messages
 
 Hub — [domain](./index.md). PG mapping — [storage-mapping](../storage-mapping.md) § MessageRef. Когда tool пишет в историю — [tools/composite](../tools/composite.md) § Память.
 
-Имена **instruments** и **egress item** (transport) — отдельная ось от **`MessagePayload.type`**; здесь только **domain payload**.
+Имена **instruments** и **egress item** (transport) — отдельная ось от **`MessagePayload.type`**, но **литералы согласованы** (`points` / `places`) — [#130](https://github.com/skepsik/utlas-ts/issues/130); здесь только **domain payload**.
 
 ---
 
