@@ -276,7 +276,7 @@ connectivity    = reply_to-сшитая | purely-thematic
 | group, разреженная нить, высокий scatter | спорно; block не default без причины |
 | purely-thematic, разреженная | retrieval, не presentation |
 
-Presentation policy (TBD): `annotated_feed` | `isolated_block` — внутри **blob** wire; multi-message — [Rejected](../tools/native-tool-calls.md).
+Presentation policy (TBD): `annotated_feed` | `isolated_block` — внутри **blob** wire; multi-message — [Rejected](./tools/native-tool-calls.md).
 
 ### Rejected (presentation)
 
