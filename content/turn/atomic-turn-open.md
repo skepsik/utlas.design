@@ -4,7 +4,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 
 **Концепт**, не план реализации; рассинхрон терминов с кодом и [turn-pipeline](../turn-pipeline.md) пока **игнорируем**.
 
-См. также: [native tool calls](../tools/native-tool-calls.md), [llm-jobs](../llm-jobs.md), [semantic-thread](../semantic-thread.md) § Подача модели.
+См. также: [native tool calls](../tools/native-tool-calls.md), [llm-jobs](../llm-jobs.md).
 
 ---
 
@@ -88,33 +88,11 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 
 ---
 
-## Обсуждение C: SEMANTIC THREAD (смежное, presentation)
-
-Детали — [semantic-thread](../semantic-thread.md) § Подача модели. Кратко для связи с атомарным turn.
-
-### C1. Убрать блок `=== SEMANTIC THREAD ===`?
-
-**Да (concept).** Domain `buildSemanticThread` остаёт; в prompt — маркер `[THREAD]` в ленте, не duplicate block.
-
-**Код v0:** менять **не обязательно**; block не доказанно вреден, убрать — когда удобно.
-
-### C2. Block vs marker на ~100 сообщениях?
-
-**Скорее всего без разницы** на реальных объёмах (RU-короткие реплики ~50–100 tok). Спор block/marker и lost-in-the-middle — для окон **на порядок больше** utlas.
-
-### C3. Group noise ⇒ isolated block?
-
-**Обсуждалось** (Utlas vs Claude): contiguous extract vs маркер в шумной ленте.
-
-**Итог concept:** на utlas-масштабе и **реальной** структуре чатов (далёкое ⇒ reply_to, горячая тема ⇒ мало side-talk) synthetic worst case **редок**. Wire остаётся blob; presentation thread — marker в ленте.
-
----
-
 ## Design-review атомарного turn (2026-07)
 
 Формат: **вопрос ревью → ответ оператора → статус**.
 
-### D1. Supersede: первый токен или finish?
+### C1. Supersede: первый токен или finish?
 
 | | |
 |--|--|
@@ -122,7 +100,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Deliver **до** ответа невозможен. Partial stream в egress нет. Граница = **finish** fetch + parse |
 | **Статус** | **Закрыто** |
 
-### D2. Нужен ли abort у провайдера?
+### C2. Нужен ли abort у провайдера?
 
 | | |
 |--|--|
@@ -130,7 +108,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Как **сейчас**: cancel шлём, но можно **игнорировать** ответ superseded inference и слать следующий compose |
 | **Статус** | **Закрыто** — abort не несёт архитектуру |
 
-### D3. Recall в очереди vs новый user-триггер
+### C3. Recall в очереди vs новый user-триггер
 
 | | |
 |--|--|
@@ -138,7 +116,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Окна **узкие**; recall стоит **за** user-триггером на момент рождения; следующий user — **за** recall (гипотеза, нужна симуляция) |
 | **Статус** | **Open** — timeline |
 
-### D4. Deferred trigger устарел
+### C4. Deferred trigger устарел
 
 | | |
 |--|--|
@@ -146,7 +124,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Согласен, **кейсы разрисовать** (discard / dedup / always fresh compose) |
 | **Статус** | **Open** |
 
-### D5. Commit-point и tool side effects
+### C5. Commit-point и tool side effects
 
 | | |
 |--|--|
@@ -154,7 +132,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | «Не понял» — уточнение ревью: вопрос про порядок `inference finish → tool execute → write → deliver`, не про deliver до ответа. HITL-gate — идея границы необратимого |
 | **Статус** | **Open** — список первого write |
 
-### D6. Job callback «посреди диалога»
+### C6. Job callback «посреди диалога»
 
 | | |
 |--|--|
@@ -162,7 +140,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Диалог **вечен**; callback = триггер цепочки, на которую **подписался** pass с deploy. Не чужая нить |
 | **Статус** | **Закрыто** |
 
-### D7. Group: лавина ответов
+### C7. Group: лавина ответов
 
 | | |
 |--|--|
@@ -170,7 +148,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Явный trigger + reply_to каждому; как сейчас. Гонка «второй ответил раньше» — ordering, не корректность |
 | **Статус** | **Open** — моделирование latency |
 
-### D8. Burst: два вопроса в одной пачке
+### C8. Burst: два вопроса в одной пачке
 
 | | |
 |--|--|
@@ -178,7 +156,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Как **сейчас** в окне supersede: не склеятся, если второе **вне** окна — первое в history, второе в USER_MESSAGE; prompt на всю пачку |
 | **Статус** | **Закрыто** для v0-логики |
 
-### D9. Prompt machine — новая логика?
+### C9. Prompt machine — новая логика?
 
 | | |
 |--|--|
@@ -186,7 +164,7 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 | **Ответ** | Prompt **тот же**; меняется orchestration, не форма |
 | **Статус** | **Закрыто** (отдельная страница prompt machine — later)
 
-### D10. Очередь vs monolith
+### C10. Очередь vs monolith
 
 | | |
 |--|--|
@@ -204,7 +182,6 @@ Companion к [Атомарный turn: тезисы](./Атомарный%20turn
 - tool loop = **несколько pass'ов** с локальными триггерами, re-compose
 - burst ≠ supersede; job = async + handle; callback = триггер своей цепочки
 - group: explicit trigger, reply_to; parallel compute, serial commit в ленту
-- SEMANTIC THREAD block → marker (concept); код v0 не срочно
 
 ---
 
