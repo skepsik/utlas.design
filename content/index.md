@@ -31,7 +31,7 @@
 | -------- | ---- |
 | [transport](./transport/) | Ingress, qualifying, egress, ports |
 | [telegram](./transport/telegram.md) | Telegram v0: identity, handlers, wire |
-| [peer](./transport/peer.md) | Протокол bot↔bot, паритет TG getUpdates |
+| [peer](./transport/peer.md) | bot-peer: протокол bot↔bot, паритет TG getUpdates |
 
 ## LLM answer envelope
 

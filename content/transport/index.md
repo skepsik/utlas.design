@@ -6,7 +6,7 @@
 
 **Сейчас:** единственная реализация — [Telegram v0](./telegram.md). Симметричные порты ingress/egress ([#110](https://github.com/skepsik/utlas-ts/issues/110), [#69](https://github.com/skepsik/utlas-ts/issues/69)); identity чата — uuid + `external_key` ([#81](https://github.com/skepsik/utlas-ts/issues/81)). Egress: split `telegram/outbound/`, `OutboundPort.wire()` + `deliver()` ([#126](https://github.com/skepsik/utlas-ts/issues/126)); turn v0 по-прежнему только `deliver` (batch `wire` → PG — [#117](https://github.com/skepsik/utlas-ts/issues/117)).
 
-**Peer:** [протокол](./peer.md) — bot↔bot long-poll, паритет с Bot API Getting updates (в коде ещё нет).
+**Peer:** [bot-peer](./peer.md) — протокол bot↔bot, паритет Bot API Getting updates (в коде ещё нет).
 
 ---
 
