@@ -31,6 +31,7 @@
 | -------- | ---- |
 | [transport](./transport/) | Ingress, qualifying, egress, ports |
 | [telegram](./transport/telegram.md) | Telegram v0: identity, handlers, wire |
+| [peer](./transport/peer.md) | Протокол bot↔bot, паритет TG getUpdates |
 
 ## LLM answer envelope
 
@@ -57,7 +58,7 @@
 | Страница | Тема |
 | -------- | ---- |
 | [questions-neutral](./prompts/questions-neutral.md) | Нейтральный слой ответов (v0), оси A/B/C |
-| [context-bus](./prompts/context-bus.md) | Shared store для multi-bot (spike) |
+| [context-bus](./prompts/context-bus.md) | Shared store для multi-bot (spike); ≠ [peer](./transport/peer.md) |
 
 ## Structure (later)
 

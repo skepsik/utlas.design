@@ -6,6 +6,8 @@ Telegram Bot API **не доставляет** сообщения bot→bot. В 
 
 Архитектурный обход — shared store (ниже). Meta-overclaim в group prompt — [#20](https://github.com/skepsik/utlas-ts/issues/20).
 
+**Не путать** с [peer](../transport/peer.md): peer — открытый HTTP-протокол (паритет Bot API getUpdates); context-bus — общая лента для compose.
+
 ## Идея
 
 **Общая шина / shared store** — source of truth для LLM-контекста; Telegram — **display transport**.

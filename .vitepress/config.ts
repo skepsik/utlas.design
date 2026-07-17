@@ -43,6 +43,7 @@ export default defineConfig({
         items: [
           { text: "Overview", link: "/transport/" },
           { text: "Telegram", link: "/transport/telegram" },
+          { text: "Peer protocol", link: "/transport/peer" },
         ],
       },
       {
